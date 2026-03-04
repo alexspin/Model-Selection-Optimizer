@@ -1,4 +1,79 @@
 import type { PromptAnalysis, ModelCapability, ConversationTurn } from "../types/index.js";
+import type { ClassificationResult } from "./semantic-classifier.js";
+
+function estimateTokenCount(text: string): number {
+  return Math.ceil(text.length / 3.5);
+}
+
+function capabilitiesFromClassifications(results: ClassificationResult[]): ModelCapability[] {
+  const capabilities: Set<ModelCapability> = new Set();
+  capabilities.add("text-generation");
+  for (const result of results) {
+    for (const cap of result.definition.requiredCapabilities) {
+      capabilities.add(cap);
+    }
+  }
+  return Array.from(capabilities);
+}
+
+function complexityFromClassifications(
+  results: ClassificationResult[],
+  tokenCount: number
+): "simple" | "moderate" | "complex" {
+  if (results.length === 0) return "moderate";
+
+  const topResult = results[0];
+  const tier = topResult.definition.suggestedTier;
+
+  if (tier === "frontier" || tokenCount > 2000) return "complex";
+  if (tier === "mid" || tokenCount > 500 || results.length >= 3) return "moderate";
+  if (tier === "budget" || tier === "local") return "simple";
+
+  return "moderate";
+}
+
+function outputEstimateFromClassifications(
+  results: ClassificationResult[],
+  complexity: "simple" | "moderate" | "complex"
+): number {
+  if (results.length === 0) {
+    return complexity === "complex" ? 2000 : complexity === "moderate" ? 800 : 200;
+  }
+
+  const scale = results[0].definition.expectedOutputScale;
+  switch (scale) {
+    case "short": return 200;
+    case "medium": return 800;
+    case "long": return 2000;
+  }
+}
+
+export function analyzePromptWithClassifications(
+  prompt: string,
+  classificationResults: ClassificationResult[],
+  conversationHistory: ConversationTurn[] = []
+): PromptAnalysis {
+  const capabilities = capabilitiesFromClassifications(classificationResults);
+  const totalContextTokens = conversationHistory.reduce(
+    (sum, turn) => sum + estimateTokenCount(turn.content), 0
+  );
+  const estimatedInputTokens = estimateTokenCount(prompt) + totalContextTokens;
+  const complexity = complexityFromClassifications(classificationResults, estimatedInputTokens);
+  const estimatedOutputTokens = outputEstimateFromClassifications(classificationResults, complexity);
+
+  return {
+    estimatedInputTokens,
+    estimatedOutputTokens,
+    detectedCapabilities: capabilities,
+    complexity,
+    requiresReasoning: capabilities.includes("reasoning"),
+    requiresCodeGen: capabilities.includes("code-generation"),
+    requiresLongContext: estimatedInputTokens > 50000,
+    requiresVision: capabilities.includes("vision"),
+    conversationDepth: conversationHistory.length,
+    rawPrompt: prompt,
+  };
+}
 
 const CODE_INDICATORS = [
   /\b(function|class|const|let|var|import|export|return|async|await)\b/,
@@ -16,7 +91,7 @@ const REASONING_INDICATORS = [
 ];
 
 const CREATIVE_INDICATORS = [
-  /\b(write|compose|draft|create|imagine|story|poem|essay|narrative)\b/i,
+  /\b(compose|draft|imagine|story|poem|essay|narrative)\b/i,
   /\b(creative|artistic|fictional|metaphor|style|tone|voice)\b/i,
 ];
 
@@ -37,10 +112,6 @@ const TRANSLATION_INDICATORS = [
 const VISION_INDICATORS = [
   /\b(image|picture|photo|screenshot|diagram|visual|look at|see this)\b/i,
 ];
-
-function estimateTokenCount(text: string): number {
-  return Math.ceil(text.length / 3.5);
-}
 
 function detectCapabilities(text: string): ModelCapability[] {
   const capabilities: Set<ModelCapability> = new Set();
@@ -74,23 +145,16 @@ export function analyzePrompt(
   const complexity = assessComplexity(prompt, capabilities);
 
   const totalContextTokens = conversationHistory.reduce(
-    (sum, turn) => sum + estimateTokenCount(turn.content),
-    0
+    (sum, turn) => sum + estimateTokenCount(turn.content), 0
   );
 
   const estimatedInputTokens = estimateTokenCount(prompt) + totalContextTokens;
 
   let estimatedOutputTokens: number;
   switch (complexity) {
-    case "simple":
-      estimatedOutputTokens = 200;
-      break;
-    case "moderate":
-      estimatedOutputTokens = 800;
-      break;
-    case "complex":
-      estimatedOutputTokens = 2000;
-      break;
+    case "simple": estimatedOutputTokens = 200; break;
+    case "moderate": estimatedOutputTokens = 800; break;
+    case "complex": estimatedOutputTokens = 2000; break;
   }
 
   if (capabilities.includes("code-generation")) {

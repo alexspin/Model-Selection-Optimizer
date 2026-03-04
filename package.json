@@ -12,10 +12,16 @@
     "gateway": "tsx src/start-gateway.ts",
     "typecheck": "tsc --noEmit"
   },
-  "keywords": ["openclaw", "model-routing", "llm", "ai-agent"],
+  "keywords": [
+    "openclaw",
+    "model-routing",
+    "llm",
+    "ai-agent"
+  ],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@huggingface/transformers": "^3.8.1",
     "@types/node": "^22.19.13",
     "openclaw": "^2026.3.2",
     "tiktoken": "^1.0.22",

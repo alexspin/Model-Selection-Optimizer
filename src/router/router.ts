@@ -7,7 +7,8 @@ import type {
   ModelProfile,
 } from "../types/index.js";
 import { ModelRegistry } from "../models/registry.js";
-import { analyzePrompt } from "../analyzers/prompt-analyzer.js";
+import { analyzePrompt, analyzePromptWithClassifications } from "../analyzers/prompt-analyzer.js";
+import { SemanticClassifier, type ClassificationResult } from "../analyzers/semantic-classifier.js";
 import { scoreModels } from "./scoring-engine.js";
 import { estimateCost } from "../strategies/cost-strategy.js";
 import { allStrategies, getStrategyByName } from "../strategies/index.js";
@@ -18,6 +19,7 @@ export class SmartRouter {
   private config: RouterConfig;
   private strategies: RoutingStrategy[];
   private metaRouter?: LLMMetaRouter;
+  private semanticClassifier?: SemanticClassifier;
   private routingLog: RoutingDecision[] = [];
 
   constructor(config: RouterConfig, registry?: ModelRegistry) {
@@ -28,6 +30,10 @@ export class SmartRouter {
     if (config.enableMetaRouting && config.metaRoutingModel) {
       this.metaRouter = new LLMMetaRouter(config.metaRoutingModel);
     }
+  }
+
+  setSemanticClassifier(classifier: SemanticClassifier): void {
+    this.semanticClassifier = classifier;
   }
 
   private loadStrategies(): RoutingStrategy[] {
@@ -48,7 +54,23 @@ export class SmartRouter {
   }
 
   async route(prompt: string, context: RoutingContext): Promise<RoutingDecision> {
-    const analysis = analyzePrompt(prompt, context.conversationHistory);
+    let analysis: PromptAnalysis;
+    let classificationResults: ClassificationResult[] | undefined;
+
+    if (this.semanticClassifier) {
+      classificationResults = await this.semanticClassifier.classifyWithThreshold(prompt);
+      analysis = analyzePromptWithClassifications(prompt, classificationResults, context.conversationHistory);
+
+      if (this.config.logging && classificationResults.length > 0) {
+        const classInfo = classificationResults
+          .map((c) => `${c.name}(${c.confidence.toFixed(2)})`)
+          .join(", ");
+        console.log(`[SmartRouter] Classifications: ${classInfo}`);
+      }
+    } else {
+      analysis = analyzePrompt(prompt, context.conversationHistory);
+    }
+
     const candidates = this.getCandidates(analysis, context);
 
     if (candidates.length === 0) {
@@ -87,7 +109,7 @@ export class SmartRouter {
 
     const decision = this.buildDecision(
       best.model,
-      this.explainDecision(analysis, best),
+      this.explainDecision(analysis, best, classificationResults),
       best.totalScore,
       alternatives,
       analysis,
@@ -155,11 +177,17 @@ export class SmartRouter {
 
   private explainDecision(
     analysis: PromptAnalysis,
-    best: { model: ModelProfile; totalScore: number; strategyScores: Record<string, number> }
+    best: { model: ModelProfile; totalScore: number; strategyScores: Record<string, number> },
+    classifications?: ClassificationResult[]
   ): string {
     const parts: string[] = [];
+
+    if (classifications && classifications.length > 0) {
+      parts.push(`Classification: ${classifications[0].name} (${classifications[0].confidence.toFixed(2)})`);
+    }
+
     parts.push(`Complexity: ${analysis.complexity}`);
-    parts.push(`Capabilities needed: [${analysis.detectedCapabilities.join(", ")}]`);
+    parts.push(`Capabilities: [${analysis.detectedCapabilities.join(", ")}]`);
     parts.push(`Model tier: ${best.model.tier}`);
 
     const topStrategy = Object.entries(best.strategyScores)

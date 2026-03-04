@@ -1,8 +1,16 @@
 export { SmartRouter } from "./router/router.js";
 export { ModelRegistry } from "./models/registry.js";
-export { analyzePrompt } from "./analyzers/prompt-analyzer.js";
+export { analyzePrompt, analyzePromptWithClassifications } from "./analyzers/prompt-analyzer.js";
+export { SemanticClassifier } from "./analyzers/semantic-classifier.js";
+export type { ClassificationResult, SemanticClassifierConfig } from "./analyzers/semantic-classifier.js";
 export { CostTracker } from "./utils/cost-tracker.js";
 export { defaultRouterConfig, createRouterConfig } from "./config/defaults.js";
+export {
+  defaultClassifications,
+  loadClassifications,
+  mergeClassifications,
+} from "./config/classifications.js";
+export type { ClassificationDefinition } from "./config/classifications.js";
 export {
   capabilityStrategy,
   costStrategy,
