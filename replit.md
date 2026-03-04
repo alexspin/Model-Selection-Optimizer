@@ -36,7 +36,18 @@ src/
 │   └── semantic-classifier.ts       # Embedding-based prompt classifier (REAL)
 ├── config/
 │   ├── defaults.ts                  # Default router config (strategy weights)
-│   └── classifications.ts           # 10 classification categories with examples
+│   ├── classifications.ts           # 10 classification categories (loads examples from JSON)
+│   └── examples/                    # 50 example prompts per category (JSON files)
+│       ├── simple-question.json
+│       ├── code-generation.json
+│       ├── code-debugging.json
+│       ├── deep-reasoning.json
+│       ├── creative-writing.json
+│       ├── summarization.json
+│       ├── data-analysis.json
+│       ├── translation.json
+│       ├── tool-use.json
+│       └── conversation.json
 ├── router/
 │   ├── router.ts                    # SmartRouter orchestrator
 │   ├── scoring-engine.ts            # Weighted multi-strategy scorer
