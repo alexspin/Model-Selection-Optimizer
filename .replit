@@ -37,4 +37,4 @@ outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "npx tsx src/setup.ts"
+args = "npx tsx src/start-gateway.ts"
