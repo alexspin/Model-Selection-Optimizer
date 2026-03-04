@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx src/demo.ts",
-    "start": "tsx src/demo.ts",
+    "start": "tsx src/start-gateway.ts",
+    "setup": "tsx src/setup.ts",
+    "gateway": "tsx src/start-gateway.ts",
     "typecheck": "tsc --noEmit"
   },
   "keywords": ["openclaw", "model-routing", "llm", "ai-agent"],
