@@ -123,18 +123,21 @@ export class SmartRouterBridge {
         ),
       ]);
 
-      const modelRef = decision.selectedModel.id;
+      const fullId = decision.selectedModel.id;
       const provider = decision.selectedModel.provider;
+      const modelName = fullId.startsWith(`${provider}/`)
+        ? fullId.slice(provider.length + 1)
+        : fullId;
 
       if (this.config.logDecisions) {
         this.logger?.info?.(
-          `smart-router: routed to ${modelRef} (score=${decision.score.toFixed(3)}, reason=${decision.reason})` +
+          `smart-router: routed to ${provider}/${modelName} (score=${decision.score.toFixed(3)}, reason=${decision.reason})` +
             (hookContext?.sessionKey ? ` session=${hookContext.sessionKey}` : "")
         );
       }
 
       return {
-        modelOverride: modelRef,
+        modelOverride: modelName,
         providerOverride: provider,
         decision,
       };
