@@ -155,11 +155,8 @@ export class SmartRouterBridge {
         ),
       ]);
 
-      const fullId = decision.selectedModel.id;
       const provider = decision.selectedModel.provider;
-      const modelName = fullId.startsWith(`${provider}/`)
-        ? fullId.slice(provider.length + 1)
-        : fullId;
+      const modelName = decision.selectedModel.modelId;
 
       if (this.config.logDecisions) {
         this.logger?.info?.(
@@ -209,9 +206,7 @@ export class SmartRouterBridge {
 
     const model = tierModels[0];
     const provider = model.provider;
-    const modelName = model.id.startsWith(`${provider}/`)
-      ? model.id.slice(provider.length + 1)
-      : model.id;
+    const modelName = model.modelId;
 
     this.logger?.info?.(
       `smart-router: forced route to ${provider}/${modelName} (tier=${tier}, prefix command)` +

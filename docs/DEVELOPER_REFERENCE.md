@@ -263,15 +263,12 @@ router.addStrategy(myStrategy, { weight: 0.15 });
 
 **File:** `src/models/registry.ts`
 
-Pre-loaded with 8 models. Pricing and capability data is **hardcoded** (not fetched from APIs).
+Pre-loaded with 5 models matching OpenClaw's model registry. Pricing and capability data is **hardcoded** (not fetched from APIs). Only models that OpenClaw recognizes are included to avoid "Unknown model" errors.
 
 | Model | Provider | Tier | Input $/M | Output $/M | Context | Enabled |
 |---|---|---|---|---|---|---|
 | Claude Opus 4.6 | Anthropic | frontier | $15.00 | $75.00 | 200K | Yes |
 | Claude Sonnet 4.6 | Anthropic | mid | $3.00 | $15.00 | 200K | Yes |
-| Claude 3.5 Haiku | Anthropic | budget | $0.80 | $4.00 | 200K | Yes |
-| GPT-4o | OpenAI | frontier | $2.50 | $10.00 | 128K | Yes |
-| GPT-4o Mini | OpenAI | budget | $0.15 | $0.60 | 128K | Yes |
 | Gemini 2.5 Pro | Google | frontier | $1.25 | $10.00 | 1M | Yes |
 | Gemini 2.5 Flash | Google | budget | $0.15 | $0.60 | 1M | Yes |
 | Qwen3 8B | Ollama | local | $0.00 | $0.00 | 32K | No |
@@ -465,7 +462,7 @@ Change weights in `src/config/defaults.ts` or pass overrides to `createRouterCon
 | 5 Scoring Strategies (`strategies/*.ts`) | All fully implemented with real scoring logic |
 | Scoring Engine (`scoring-engine.ts`) | Weighted multi-strategy combination |
 | SmartRouter (`router.ts`) | Full orchestration pipeline |
-| Model Registry (`registry.ts`) | 8 models with real pricing (hardcoded, not live-fetched) |
+| Model Registry (`registry.ts`) | 5 models with real pricing, matching OpenClaw's known models |
 | Cost Tracker (`cost-tracker.ts`) | Per-session, per-model tracking |
 | Setup Check (`setup.ts`) | Real OpenClaw installation verification |
 | Gateway Launcher (`start-gateway.ts`) | Real — starts the OpenClaw gateway process |

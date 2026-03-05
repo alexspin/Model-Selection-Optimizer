@@ -30,7 +30,7 @@ src/
 ├── setup.ts                         # OpenClaw health check
 ├── start-gateway.ts                 # Gateway launcher
 ├── types/index.ts                   # All TypeScript interfaces + Zod schemas
-├── models/registry.ts               # Model catalog (8 models, real pricing)
+├── models/registry.ts               # Model catalog (5 models, real pricing)
 ├── analyzers/
 │   ├── prompt-analyzer.ts           # Confidence-aware complexity detection
 │   └── semantic-classifier.ts       # Embedding-based prompt classifier (REAL)
