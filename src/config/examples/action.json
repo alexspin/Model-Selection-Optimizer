@@ -1,5 +1,4 @@
 [
-  "Check the current weather in Seattle",
   "Deploy this application to production",
   "Create a new file called config.yaml with these settings",
   "Run the database migration scripts",
@@ -9,19 +8,19 @@
   "Set up a cron job that runs this backup script every night",
   "Upload this CSV to our S3 bucket",
   "Check if port 3000 is currently in use",
-  "Calculate the average revenue per user from this sales data",
   "Kill the process running on port 5432",
-  "Generate a chart showing monthly signups over the past year",
   "Pull the latest data from our analytics API",
   "Send a Slack message to the #engineering channel",
   "Aggregate these log files and find the most common error codes",
   "Clone the repository at this GitHub URL",
   "Parse this JSON response and extract all user IDs",
   "Start the local development server on port 8080",
-  "Compute the standard deviation of these test scores",
   "Download the report from this URL and save it locally",
-  "Run a pivot table on this spreadsheet grouping by region",
   "Check the SSL certificate expiry for our domain",
   "Find all TODO comments in the codebase",
-  "Schedule a calendar event for tomorrow at 2pm"
+  "Schedule a calendar event for tomorrow at 2pm",
+  "Run npm install and then start the dev server",
+  "Restart the nginx service",
+  "Open the file manager and rename these folders",
+  "Connect to the production database and run this query"
 ]
