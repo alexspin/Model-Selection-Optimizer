@@ -22,6 +22,8 @@ export {
 } from "./strategies/index.js";
 export { scoreModels } from "./router/scoring-engine.js";
 export { LLMMetaRouter } from "./router/meta-router.js";
+export { SmartRouterBridge } from "./plugin/bridge.js";
+export type { SmartRouterPluginConfig, BridgeLogger, ResolveResult } from "./plugin/bridge.js";
 export type {
   ModelProfile,
   ModelCapability,

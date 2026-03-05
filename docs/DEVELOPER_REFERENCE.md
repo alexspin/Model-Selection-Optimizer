@@ -479,53 +479,112 @@ Change weights in `src/config/defaults.ts` or pass overrides to `createRouterCon
 |---|---|---|
 | Meta-Router (`meta-router.ts`) | Prompts are built correctly but no API call is made. Returns first candidate. | Wire to an LLM API (e.g., GPT-4o Mini) to parse routing prompts. |
 | Zod Runtime Validation | Schemas defined, not called at boundaries. | Add `.parse()` at config/model registration. |
-| OpenClaw Plugin Integration | Router is standalone, not hooked into OpenClaw's Plugin SDK. | Create plugin entry point using `openclaw/plugin-sdk`. |
+| OpenClaw Plugin Integration | **REAL** — Plugin registers `before_model_resolve` hook to override model per turn. | — |
 | Quality Score Feedback | `updateQualityScore()` / `updateLatency()` exist but nothing calls them. | Add post-response hooks to feed real performance data back. |
 | tiktoken Integration | Package installed but not used. Token estimation uses `chars / 3.5`. | Replace heuristic with `tiktoken` for accurate counts. |
 
 ---
 
-## OpenClaw Integration Points
+## OpenClaw Plugin Integration
 
-### Current State
+### How It Works
+
+The smart router is integrated as an OpenClaw plugin via the `before_model_resolve` lifecycle hook. This hook fires before every agent turn, receives the user's prompt, and can return a `modelOverride` to change which model handles that turn.
+
+```
+User sends message
+    │
+    ▼
+OpenClaw Gateway receives message
+    │
+    ▼
+before_model_resolve hook fires  ◄── smart-router plugin intercepts here
+    │
+    ├── SmartRouterBridge.resolveModel(prompt, ctx)
+    │       ├── Lazy-init: SemanticClassifier + SmartRouter (first call only)
+    │       ├── Classify prompt → score models → pick best
+    │       └── Return { modelOverride, providerOverride }
+    │
+    ▼
+OpenClaw uses overridden model for this turn
+    │
+    ▼
+Agent runs with selected model
+```
+
+### Plugin Files
+
+```
+src/plugin/
+├── index.ts                 # Plugin entry point (~25 lines)
+│                            #   - Reads config from api.pluginConfig
+│                            #   - Creates SmartRouterBridge
+│                            #   - Registers before_model_resolve hook
+├── bridge.ts                # Adapter between OpenClaw hooks and SmartRouter
+│                            #   - Lazy initialization (loads embedding model on first call)
+│                            #   - Timeout protection for init and routing
+│                            #   - Graceful degradation (returns void on failure)
+│                            #   - Configurable via SmartRouterPluginConfig
+└── openclaw.plugin.json     # Plugin manifest (id, configSchema, uiHints)
+```
+
+### Plugin Configuration
+
+Add to `~/.openclaw/openclaw.json`:
+
+```json
+{
+  "plugins": {
+    "load": {
+      "paths": ["/path/to/smart-model-router/src/plugin"]
+    },
+    "entries": {
+      "smart-router": {
+        "enabled": true,
+        "config": {
+          "enabled": true,
+          "logDecisions": true,
+          "fallbackModel": "anthropic/claude-sonnet-4-6",
+          "routeTimeoutMs": 5000,
+          "initTimeoutMs": 30000,
+          "strategyWeights": {
+            "capability-match": 0.35,
+            "complexity-tier-match": 0.25,
+            "cost-optimization": 0.20,
+            "latency-optimization": 0.10,
+            "context-window-fit": 0.10
+          },
+          "blockedModels": [],
+          "preferredProviders": [],
+          "preferredTier": null
+        }
+      }
+    }
+  }
+}
+```
+
+All config fields are optional — defaults are applied automatically.
+
+### Graceful Degradation
+
+The plugin is designed to never crash the gateway:
+
+1. If the embedding model fails to load → hook returns void → OpenClaw uses its default model
+2. If routing takes longer than `routeTimeoutMs` → hook returns void → default model
+3. If any error occurs during classification/scoring → caught, logged, default model used
+4. If `enabled: false` in config → hook is never registered
+
+### Disabling the Plugin
+
+Set `enabled: false` in the plugin config, or remove the `smart-router` entry entirely. The gateway will use its default model for all turns.
+
+### Environment
 
 - OpenClaw 2026.3.2 installed as npm dependency
 - Gateway configured at `~/.openclaw/openclaw.json` (port 18789, auth: none)
 - 3 API keys configured: Anthropic, OpenAI, Google
 - Gateway starts via `npm run gateway`
-
-### Future: Plugin Integration
-
-OpenClaw exposes a Plugin SDK at `openclaw/plugin-sdk`:
-
-```typescript
-import type { PluginAPI } from "openclaw/plugin-sdk";
-
-export function register(api: PluginAPI) {
-  api.onMessage(async (msg) => {
-    const decision = await router.route(msg.content, context);
-    // Override which model handles this message
-    // based on decision.selectedModel
-  });
-}
-```
-
-This is the path to making the router actually intercept and redirect OpenClaw conversations.
-
-### Config Structure
-
-```json
-{
-  "gateway": { "mode": "local", "port": 18789, "auth": { "mode": "none" } },
-  "agents": {
-    "defaults": {
-      "workspace": "~/.openclaw/workspace",
-      "model": { "primary": "anthropic/claude-sonnet-4-6" }
-    }
-  },
-  "models": { "mode": "merge", "providers": {} }
-}
-```
 
 OpenClaw auto-detects API keys from environment variables:
 - `ANTHROPIC_API_KEY` → `anthropic/*` models

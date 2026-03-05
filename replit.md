@@ -48,6 +48,10 @@ src/
 │       ├── translation.json
 │       ├── tool-use.json
 │       └── conversation.json
+├── plugin/
+│   ├── index.ts                     # OpenClaw plugin entry (~25 lines)
+│   ├── bridge.ts                    # SmartRouterBridge adapter (lazy init, timeouts, graceful fallback)
+│   └── openclaw.plugin.json         # Plugin manifest (id, configSchema, uiHints)
 ├── router/
 │   ├── router.ts                    # SmartRouter orchestrator
 │   ├── scoring-engine.ts            # Weighted multi-strategy scorer
@@ -70,8 +74,16 @@ src/
 - `zod` — schema validation
 - `tiktoken` — token counting (installed, not yet integrated)
 
+## OpenClaw Plugin Integration
+- Plugin registers `before_model_resolve` hook to override model per turn
+- Plugin entry: `src/plugin/index.ts` (thin wrapper, ~25 lines)
+- Bridge: `src/plugin/bridge.ts` (lazy init, timeout protection, graceful degradation)
+- Config: `plugins.load.paths` in `~/.openclaw/openclaw.json` points to `src/plugin/`
+- All routing intelligence stays in `src/router/`, `src/analyzers/`, `src/strategies/`
+
 ## OpenClaw Config
 - File: `~/.openclaw/openclaw.json`
 - Gateway: port 18789, auth: none
 - Default model: `anthropic/claude-sonnet-4-6`
+- Plugin: smart-router enabled via `plugins.entries.smart-router`
 - Workspace: `~/.openclaw/workspace`
