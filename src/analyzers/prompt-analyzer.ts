@@ -5,14 +5,16 @@ function estimateTokenCount(text: string): number {
   return Math.ceil(text.length / 3.5);
 }
 
-const HIGH_CONFIDENCE_THRESHOLD = 0.45;
-const LOW_CONFIDENCE_THRESHOLD = 0.35;
+const DEFAULT_CONFIDENCE_THRESHOLD = 0.35;
 
-function capabilitiesFromClassifications(results: ClassificationResult[]): ModelCapability[] {
+function capabilitiesFromClassifications(
+  results: ClassificationResult[],
+  threshold: number = DEFAULT_CONFIDENCE_THRESHOLD
+): ModelCapability[] {
   const capabilities: Set<ModelCapability> = new Set();
   capabilities.add("text-generation");
   for (const result of results) {
-    if (result.confidence >= LOW_CONFIDENCE_THRESHOLD) {
+    if (result.confidence >= threshold) {
       for (const cap of result.definition.requiredCapabilities) {
         capabilities.add(cap);
       }
@@ -23,7 +25,8 @@ function capabilitiesFromClassifications(results: ClassificationResult[]): Model
 
 function complexityFromClassifications(
   results: ClassificationResult[],
-  tokenCount: number
+  tokenCount: number,
+  threshold: number = DEFAULT_CONFIDENCE_THRESHOLD
 ): "simple" | "moderate" | "complex" {
   if (results.length === 0) return "simple";
 
@@ -31,7 +34,7 @@ function complexityFromClassifications(
   const topConfidence = topResult.confidence;
   const tier = topResult.definition.suggestedTier;
 
-  if (topConfidence < LOW_CONFIDENCE_THRESHOLD) return "simple";
+  if (topConfidence < threshold) return "simple";
 
   if (tier === "frontier" || tokenCount > 2000) return "complex";
   if (tier === "budget" || tier === "local") return "simple";
@@ -62,14 +65,15 @@ function outputEstimateFromClassifications(
 export function analyzePromptWithClassifications(
   prompt: string,
   classificationResults: ClassificationResult[],
-  conversationHistory: ConversationTurn[] = []
+  conversationHistory: ConversationTurn[] = [],
+  confidenceThreshold: number = DEFAULT_CONFIDENCE_THRESHOLD
 ): PromptAnalysis {
-  const capabilities = capabilitiesFromClassifications(classificationResults);
+  const capabilities = capabilitiesFromClassifications(classificationResults, confidenceThreshold);
   const totalContextTokens = conversationHistory.reduce(
     (sum, turn) => sum + estimateTokenCount(turn.content), 0
   );
   const estimatedInputTokens = estimateTokenCount(prompt) + totalContextTokens;
-  const complexity = complexityFromClassifications(classificationResults, estimatedInputTokens);
+  const complexity = complexityFromClassifications(classificationResults, estimatedInputTokens, confidenceThreshold);
   const estimatedOutputTokens = outputEstimateFromClassifications(classificationResults, complexity);
 
   return {

@@ -123,6 +123,7 @@ export interface RouterConfig {
   metaRoutingModel?: string;
   budgetDefaults: BudgetConstraint;
   logging: boolean;
+  classificationThreshold?: number;
 }
 
 export interface RoutingStrategy {

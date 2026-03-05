@@ -26,6 +26,12 @@
         "type": "boolean",
         "default": true
       },
+      "classificationThreshold": {
+        "type": "number",
+        "default": 0.35,
+        "minimum": 0.1,
+        "maximum": 0.9
+      },
       "strategyWeights": {
         "type": "object",
         "additionalProperties": false,
@@ -73,6 +79,10 @@
     "logDecisions": {
       "label": "Log Routing Decisions",
       "help": "Log which model was selected and why for each turn."
+    },
+    "classificationThreshold": {
+      "label": "Classification Confidence Threshold",
+      "help": "Minimum confidence (0-1) for the classifier to directly route to a class's model. Below this, the full scoring pipeline runs instead. Default 0.35. Lower values route more aggressively, higher values use the scoring engine more often."
     },
     "strategyWeights": {
       "label": "Strategy Weights",

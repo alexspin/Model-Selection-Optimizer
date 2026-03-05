@@ -125,8 +125,9 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
 - Config-driven class→model resolution via routing.json
 
 ## Confidence Thresholds
-- LOW = 0.35 — below this, classification defaults to fallbackClass
-- If top classification confidence >= 0.35, the class's configured model is used
+- Default threshold = 0.35 (configurable via `classificationThreshold` in plugin config)
+- If top classification confidence >= threshold, the class's configured model is used directly
+- If below threshold, the full scoring pipeline runs (5 weighted strategies)
 - Frontier-tier models or long prompts (>2000 tokens) → "complex" complexity
 
 ## Packaging & Distribution

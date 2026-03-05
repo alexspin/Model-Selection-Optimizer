@@ -59,7 +59,9 @@ export class SmartRouter {
 
     if (this.semanticClassifier) {
       classificationResults = await this.semanticClassifier.classifyWithThreshold(prompt);
-      analysis = analyzePromptWithClassifications(prompt, classificationResults, context.conversationHistory);
+      analysis = analyzePromptWithClassifications(
+        prompt, classificationResults, context.conversationHistory, this.config.classificationThreshold
+      );
 
       if (this.config.logging && classificationResults.length > 0) {
         const classInfo = classificationResults

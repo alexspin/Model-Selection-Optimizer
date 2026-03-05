@@ -12,6 +12,7 @@ export interface SmartRouterPluginConfig {
   initTimeoutMs: number;
   routeTimeoutMs: number;
   logDecisions: boolean;
+  classificationThreshold: number;
   strategyWeights?: Record<string, number>;
   blockedModels?: string[];
   preferredProviders?: string[];
@@ -24,6 +25,7 @@ export const DEFAULT_PLUGIN_CONFIG: SmartRouterPluginConfig = {
   initTimeoutMs: 30000,
   routeTimeoutMs: 5000,
   logDecisions: true,
+  classificationThreshold: 0.35,
 };
 
 export interface BridgeLogger {
@@ -150,12 +152,15 @@ export class SmartRouterBridge {
     try {
       this.logger?.info?.("smart-router: initializing semantic classifier...");
 
-      this.classifier = new SemanticClassifier(defaultClassifications);
+      this.classifier = new SemanticClassifier(defaultClassifications, {
+        confidenceThreshold: this.config.classificationThreshold,
+      });
       await this.classifier.initialize();
 
       const fallback = this.config.fallbackModel || getFallbackModel();
       const routerConfig = createRouterConfig({
         fallbackModel: fallback,
+        classificationThreshold: this.config.classificationThreshold,
       });
       if (this.config.strategyWeights) {
         for (const strategy of routerConfig.strategies) {
