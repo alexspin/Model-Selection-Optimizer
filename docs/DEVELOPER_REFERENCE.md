@@ -575,6 +575,25 @@ The plugin is designed to never crash the gateway:
 3. If any error occurs during classification/scoring → caught, logged, default model used
 4. If `enabled: false` in config → hook is never registered
 
+### Test Phrases
+
+Each classification category has a dedicated test phrase you can paste into the chat to verify routing. Each phrase is designed to be semantically unique to its category, and includes a request for the model to identify itself so you can confirm which model actually responded.
+
+| Category | Expected Tier | Expected Model | Test Phrase |
+|---|---|---|---|
+| `simple-question` | budget | Gemini Flash / Haiku | `What is the boiling point of water in Fahrenheit? — also, which model are you?` |
+| `code-generation` | mid | Claude Sonnet | `Write me a Python function that sorts a list of dictionaries by a given key (and please mention what model is responding)` |
+| `code-debugging` | mid | Claude Sonnet | `My Node.js server crashes with ECONNREFUSED when connecting to PostgreSQL on startup — by the way, can you identify yourself as a model?` |
+| `deep-reasoning` | frontier | GPT-4o / Gemini Pro | `Evaluate the long-term architectural trade-offs between event sourcing and traditional CRUD for a financial ledger system. Before you begin, state which AI model you are.` |
+| `creative-writing` | mid | Claude Sonnet | `Draft a whimsical short story about a lighthouse keeper who discovers messages in bottles from the future, and start by introducing yourself as a model` |
+| `summarization` | budget | Gemini Flash / Haiku | `Condense the following 12-page quarterly earnings report into five bullet points highlighting key metrics — oh and let me know what model handled this` |
+| `data-analysis` | mid | Claude Sonnet | `Calculate the p-value and confidence interval for this A/B test dataset with 50000 samples per variant; also tell me your model name` |
+| `translation` | mid | Claude Sonnet | `Translate this product listing from English into Japanese and Brazilian Portuguese preserving the marketing tone — as a first line, reveal which model you are` |
+| `tool-use` | mid | Claude Sonnet | `Search the npm registry for the latest version of express and show me its dependency tree, and while you are at it, say what model is answering` |
+| `conversation` | budget | Gemini Flash / Haiku | `Yeah that makes sense, go ahead with that approach — quick question though, what model am I talking to?` |
+
+The "Expected Model" column reflects default strategy weights and registry scores. Actual routing depends on enabled models, provider availability, and any config overrides.
+
 ### Disabling the Plugin
 
 Set `enabled: false` in the plugin config, or remove the `smart-router` entry entirely. The gateway will use its default model for all turns.
