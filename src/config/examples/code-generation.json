@@ -49,5 +49,5 @@
   "Create a data validation layer using Zod schemas for user input",
   "Write a Python generator that yields batches from a large dataset",
   "Build a service worker that caches API responses for offline use",
-  "ROUTER TEST code-generation: tell me what model you are"
+  "Write me a Python function that sorts a list of dictionaries by a given key"
 ]

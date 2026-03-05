@@ -49,5 +49,5 @@
   "Compare the development velocity trade-offs of TypeScript strict mode versus lenient configuration",
   "Evaluate whether our current observability stack gives us enough signal to debug production issues",
   "Reason through the data sovereignty implications of our multi-region deployment strategy",
-  "ROUTER TEST deep-reasoning: tell me what model you are"
+  "Evaluate the long-term architectural trade-offs between event sourcing and traditional CRUD for a financial ledger system"
 ]

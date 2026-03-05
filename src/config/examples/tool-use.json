@@ -49,5 +49,5 @@
   "Send a POST request with this JSON payload to the webhook",
   "Convert this markdown file to a PDF document",
   "Check how much disk space is available on the server",
-  "ROUTER TEST tool-use: tell me what model you are"
+  "Search the npm registry for the latest version of express and show me its dependency tree"
 ]

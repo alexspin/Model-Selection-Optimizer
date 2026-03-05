@@ -49,5 +49,5 @@
   "Count the number of unique visitors per day from these access logs",
   "Calculate the z-scores for each data point in this series",
   "Generate a confusion matrix from these predicted vs actual classification results",
-  "ROUTER TEST data-analysis: tell me what model you are"
+  "Calculate the p-value and confidence interval for this A/B test dataset with 50000 samples per variant"
 ]
