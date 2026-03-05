@@ -5,12 +5,17 @@ function estimateTokenCount(text: string): number {
   return Math.ceil(text.length / 3.5);
 }
 
+const HIGH_CONFIDENCE_THRESHOLD = 0.45;
+const LOW_CONFIDENCE_THRESHOLD = 0.35;
+
 function capabilitiesFromClassifications(results: ClassificationResult[]): ModelCapability[] {
   const capabilities: Set<ModelCapability> = new Set();
   capabilities.add("text-generation");
   for (const result of results) {
-    for (const cap of result.definition.requiredCapabilities) {
-      capabilities.add(cap);
+    if (result.confidence >= LOW_CONFIDENCE_THRESHOLD) {
+      for (const cap of result.definition.requiredCapabilities) {
+        capabilities.add(cap);
+      }
     }
   }
   return Array.from(capabilities);
@@ -20,13 +25,22 @@ function complexityFromClassifications(
   results: ClassificationResult[],
   tokenCount: number
 ): "simple" | "moderate" | "complex" {
-  if (results.length === 0) return "moderate";
+  if (results.length === 0) return "simple";
 
   const topResult = results[0];
+  const topConfidence = topResult.confidence;
   const tier = topResult.definition.suggestedTier;
+
+  if (topConfidence < LOW_CONFIDENCE_THRESHOLD) return "simple";
 
   if (tier === "frontier" || tokenCount > 2000) return "complex";
   if (tier === "budget" || tier === "local") return "simple";
+
+  if (topConfidence < HIGH_CONFIDENCE_THRESHOLD) {
+    if (tokenCount < 100) return "simple";
+    return "moderate";
+  }
+
   if (tier === "mid" || tokenCount > 500) return "moderate";
 
   return "moderate";
