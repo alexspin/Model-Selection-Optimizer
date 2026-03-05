@@ -48,5 +48,6 @@
   "Walk through how this circuit breaker pattern should behave under cascading failures",
   "Compare the development velocity trade-offs of TypeScript strict mode versus lenient configuration",
   "Evaluate whether our current observability stack gives us enough signal to debug production issues",
-  "Reason through the data sovereignty implications of our multi-region deployment strategy"
+  "Reason through the data sovereignty implications of our multi-region deployment strategy",
+  "ROUTER TEST deep-reasoning: tell me what model you are"
 ]

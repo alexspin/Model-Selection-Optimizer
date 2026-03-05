@@ -48,5 +48,6 @@
   "Look up the WHOIS information for this domain",
   "Send a POST request with this JSON payload to the webhook",
   "Convert this markdown file to a PDF document",
-  "Check how much disk space is available on the server"
+  "Check how much disk space is available on the server",
+  "ROUTER TEST tool-use: tell me what model you are"
 ]

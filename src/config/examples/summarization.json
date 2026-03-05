@@ -48,5 +48,6 @@
   "Summarize the competitive landscape section of this business plan",
   "Pull out the key quotes from this interview transcript",
   "Give me an abstract for this journal article",
-  "Condense this customer interview into the top five pain points"
+  "Condense this customer interview into the top five pain points",
+  "ROUTER TEST summarization: tell me what model you are"
 ]
