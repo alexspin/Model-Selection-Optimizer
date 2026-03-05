@@ -11,7 +11,7 @@ A TypeScript extension module for OpenClaw (v2026.3.2) that dynamically selects 
 
 ### Setup
 1. `npm run setup` — verify installation and API key status
-2. Set API keys as secrets: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`
+2. Set API keys as secrets: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY`
 3. `npm run gateway` — start the OpenClaw gateway
 4. `npm run dev` — run the router demo with semantic classification
 
@@ -170,4 +170,4 @@ When the scoring path runs, the analyzer extracts from classification results:
 - Default model: `anthropic/claude-sonnet-4-6`
 - Plugin: smart-router enabled via `plugins.entries.smart-router`
 - Google provider: Gemini 2.5 Pro + Flash configured via `models.providers.google`
-- Auth: `.openclaw/agents/main/agent/auth-profiles.json` references `GOOGLE_API_KEY` env var
+- Auth: `.openclaw/agents/main/agent/auth-profiles.json` references `GEMINI_API_KEY` env var

@@ -19,7 +19,7 @@
     "providers": {
       "google": {
         "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
-        "apiKey": "${GOOGLE_API_KEY}",
+        "apiKey": "${GEMINI_API_KEY}",
         "api": "google-generative-ai",
         "models": [
           {

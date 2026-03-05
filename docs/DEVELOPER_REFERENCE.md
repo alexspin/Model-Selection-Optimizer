@@ -705,5 +705,5 @@ Build with `npm run build` — this compiles TypeScript to `dist/` and copies no
 OpenClaw auto-detects API keys from environment variables:
 - `ANTHROPIC_API_KEY` → `anthropic/*` models
 - `OPENAI_API_KEY` → `openai/*` models
-- `GOOGLE_API_KEY` → `google/*` models
+- `GEMINI_API_KEY` → `google/*` models
 - `OPENROUTER_API_KEY` → `openrouter/*` models
