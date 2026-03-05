@@ -24,6 +24,14 @@ export { scoreModels } from "./router/scoring-engine.js";
 export { LLMMetaRouter } from "./router/meta-router.js";
 export { SmartRouterBridge, parseRoutePrefix } from "./plugin/bridge.js";
 export type { SmartRouterPluginConfig, BridgeLogger, ResolveResult } from "./plugin/bridge.js";
+export {
+  loadRoutingConfig,
+  getModelForClass,
+  getClassForCommand,
+  getFallbackModel,
+  getFallbackClass,
+} from "./config/routing-config.js";
+export type { RoutingConfig, ClassConfig } from "./config/routing-config.js";
 export type {
   ModelProfile,
   ModelCapability,

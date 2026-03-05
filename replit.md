@@ -35,8 +35,10 @@ src/
 │   ├── prompt-analyzer.ts           # Confidence-aware complexity detection
 │   └── semantic-classifier.ts       # Embedding-based prompt classifier (REAL)
 ├── config/
+│   ├── routing.json                 # ** MAIN CONFIG ** — commands, classes, model mappings
+│   ├── routing-config.ts            # Loader/helpers for routing.json
 │   ├── defaults.ts                  # Default router config (strategy weights)
-│   ├── classifications.ts           # 5 classification categories (loads examples from JSON)
+│   ├── classifications.ts           # Builds classifications from routing.json
 │   └── examples/                    # 25 example prompts per category (JSON files)
 │       ├── simple.json
 │       ├── coding.json
@@ -44,8 +46,8 @@ src/
 │       ├── creative.json
 │       └── action.json
 ├── plugin/
-│   ├── index.ts                     # OpenClaw plugin entry (~35 lines, 2 hooks)
-│   ├── bridge.ts                    # SmartRouterBridge adapter (lazy init, timeouts, slash-prefix routing)
+│   ├── index.ts                     # OpenClaw plugin entry (~55 lines, 2 hooks)
+│   ├── bridge.ts                    # SmartRouterBridge adapter (config-driven routing)
 │   └── openclaw.plugin.json         # Plugin manifest (id, configSchema, uiHints)
 ├── router/
 │   ├── router.ts                    # SmartRouter orchestrator
@@ -73,6 +75,36 @@ docs/
 └── DEVELOPER_REFERENCE.md           # Full architecture + API reference
 ```
 
+## Routing Config (`src/config/routing.json`)
+This is the central config file. All routing decisions flow from it.
+
+### Commands → Classes
+```json
+"commands": {
+  "/simple": "simple",
+  "/cheap": "simple",
+  "/coding": "coding",
+  "/creative": "creative",
+  "/action": "action",
+  "/reason": "reasoning",
+  "/best": "reasoning"
+}
+```
+To add a new command: add one line mapping it to a class name.
+
+### Classes → Models
+```json
+"classes": {
+  "simple":    { "model": "google/gemini-2.5-flash", ... },
+  "coding":    { "model": "anthropic/claude-sonnet-4-6", ... },
+  "reasoning": { "model": "google/gemini-2.5-pro", ... },
+  "creative":  { "model": "anthropic/claude-sonnet-4-6", ... },
+  "action":    { "model": "anthropic/claude-sonnet-4-6", ... }
+}
+```
+To change which model handles a class: change the `model` field.
+To add a new class: add an entry with description, model, examples file, capabilities, outputScale. Drop a new examples JSON in `src/config/examples/`.
+
 ## Dependencies
 - `openclaw` — AI agent framework
 - `@huggingface/transformers` — local embedding model (all-MiniLM-L6-v2)
@@ -80,35 +112,18 @@ docs/
 - `zod` — schema validation
 - `tiktoken` — token counting (installed, not yet integrated)
 
-## Classification Categories (5)
-| Category | Tier | Capabilities | Output Scale |
-|----------|------|-------------|-------------|
-| `simple` | budget | text-generation | short |
-| `coding` | mid | code-generation | long |
-| `reasoning` | frontier | reasoning | long |
-| `creative` | mid | creative-writing | long |
-| `action` | mid | function-calling | short |
-
-## Slash-Prefix Route Forcing
-Users can bypass classification by starting a prompt with a slash command:
-- `/simple`, `/quick`, `/cheap` → budget tier
-- `/coding`, `/code`, `/creative`, `/write`, `/action`, `/do` → mid tier
-- `/reason`, `/think`, `/best` → frontier tier
-
-The prefix is stripped before the prompt reaches the model.
-
 ## OpenClaw Plugin Integration
 - Plugin registers two hooks:
-  - `before_model_resolve` — picks the best model via SmartRouter (or slash-prefix override)
-  - `before_prompt_build` — injects model identity context so models self-identify correctly
-- Plugin entry: `src/plugin/index.ts` (thin wrapper, ~35 lines)
-- Bridge: `src/plugin/bridge.ts` (lazy init, timeout protection, slash-prefix parsing, graceful degradation)
+  - `before_model_resolve` — classifies prompt, looks up model from routing config
+  - `before_prompt_build` — injects model identity context + strips slash-command prefixes
+- Plugin entry: `src/plugin/index.ts`
+- Bridge: `src/plugin/bridge.ts` (lazy init, timeout protection, config-driven routing)
 - All routing intelligence stays in `src/router/`, `src/analyzers/`, `src/strategies/`
 
 ## Confidence Thresholds
-- LOW = 0.35 — below this, classification defaults to "simple" (budget tier)
-- If top classification is mid/frontier tier and confidence >= 0.35, the tier is trusted
-- Frontier tier or long prompts (>2000 tokens) → "complex" complexity
+- LOW = 0.35 — below this, classification defaults to fallbackClass
+- If top classification confidence >= 0.35, the class's configured model is used
+- Frontier-tier models or long prompts (>2000 tokens) → "complex" complexity
 
 ## OpenClaw Config
 - `.openclaw/` directory lives inside the project tree (not in `~/`)

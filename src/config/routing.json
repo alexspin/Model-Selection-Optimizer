@@ -1,0 +1,51 @@
+{
+  "commands": {
+    "/simple": "simple",
+    "/cheap": "simple",
+    "/coding": "coding",
+    "/creative": "creative",
+    "/action": "action",
+    "/reason": "reasoning",
+    "/best": "reasoning"
+  },
+
+  "classes": {
+    "simple": {
+      "description": "Quick facts, follow-ups, casual chat, acknowledgments, short summaries",
+      "model": "google/gemini-2.5-flash",
+      "examples": "simple.json",
+      "capabilities": ["text-generation"],
+      "outputScale": "short"
+    },
+    "coding": {
+      "description": "Writing code, debugging errors, building features, refactoring, code review",
+      "model": "anthropic/claude-sonnet-4-6",
+      "examples": "coding.json",
+      "capabilities": ["code-generation"],
+      "outputScale": "long"
+    },
+    "reasoning": {
+      "description": "Multi-step analysis, architecture decisions, trade-off evaluation, system design",
+      "model": "google/gemini-2.5-pro",
+      "examples": "reasoning.json",
+      "capabilities": ["reasoning"],
+      "outputScale": "long"
+    },
+    "creative": {
+      "description": "Writing content, drafting emails, blog posts, marketing copy, translation",
+      "model": "anthropic/claude-sonnet-4-6",
+      "examples": "creative.json",
+      "capabilities": ["creative-writing"],
+      "outputScale": "long"
+    },
+    "action": {
+      "description": "Tool calls, system commands, file operations, data queries, deployments",
+      "model": "anthropic/claude-sonnet-4-6",
+      "examples": "action.json",
+      "capabilities": ["function-calling"],
+      "outputScale": "short"
+    }
+  },
+
+  "fallbackClass": "simple"
+}

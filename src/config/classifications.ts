@@ -1,7 +1,9 @@
-import { readFileSync } from "fs";
+import { readFileSync, existsSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import type { ModelCapability, ModelTier } from "../types/index.js";
+import type { RoutingConfig } from "./routing-config.js";
+import { loadRoutingConfig } from "./routing-config.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -9,7 +11,17 @@ const EXAMPLES_DIR = join(__dirname, "examples");
 
 function loadExamples(filename: string): string[] {
   const filePath = join(EXAMPLES_DIR, filename);
-  return JSON.parse(readFileSync(filePath, "utf-8"));
+  if (!existsSync(filePath)) {
+    console.warn(`[classifications] examples file not found: ${filePath}`);
+    return [];
+  }
+  try {
+    return JSON.parse(readFileSync(filePath, "utf-8"));
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : String(err);
+    console.warn(`[classifications] failed to load examples from ${filename}: ${msg}`);
+    return [];
+  }
 }
 
 export interface ClassificationDefinition {
@@ -21,48 +33,43 @@ export interface ClassificationDefinition {
   expectedOutputScale: "short" | "medium" | "long";
 }
 
-export const defaultClassifications: ClassificationDefinition[] = [
-  {
-    name: "simple",
-    description: "Quick facts, follow-ups, casual chat, acknowledgments, short summaries, conversational replies",
-    examples: loadExamples("simple.json"),
-    suggestedTier: "budget",
-    requiredCapabilities: ["text-generation"],
-    expectedOutputScale: "short",
-  },
-  {
-    name: "coding",
-    description: "Writing code, debugging errors, building features, fixing bugs, refactoring, code review",
-    examples: loadExamples("coding.json"),
-    suggestedTier: "mid",
-    requiredCapabilities: ["code-generation"],
-    expectedOutputScale: "long",
-  },
-  {
-    name: "reasoning",
-    description: "Multi-step analysis, architecture decisions, trade-off evaluation, complex comparisons, system design",
-    examples: loadExamples("reasoning.json"),
-    suggestedTier: "frontier",
-    requiredCapabilities: ["reasoning"],
-    expectedOutputScale: "long",
-  },
-  {
-    name: "creative",
-    description: "Writing content, drafting emails, blog posts, marketing copy, translation, localization",
-    examples: loadExamples("creative.json"),
-    suggestedTier: "mid",
-    requiredCapabilities: ["creative-writing"],
-    expectedOutputScale: "long",
-  },
-  {
-    name: "action",
-    description: "Tool calls, system commands, file operations, data queries, deployments, external service interactions",
-    examples: loadExamples("action.json"),
-    suggestedTier: "mid",
-    requiredCapabilities: ["function-calling"],
-    expectedOutputScale: "short",
-  },
-];
+const TIER_FROM_MODEL: Record<string, ModelTier> = {
+  "anthropic/claude-opus-4-6": "frontier",
+  "anthropic/claude-sonnet-4-6": "mid",
+  "google/gemini-2.5-pro": "frontier",
+  "google/gemini-2.5-flash": "budget",
+  "ollama/qwen3:8b": "local",
+};
+
+function inferTier(modelId: string): ModelTier {
+  return TIER_FROM_MODEL[modelId] ?? "mid";
+}
+
+function buildClassifications(config: RoutingConfig): ClassificationDefinition[] {
+  const classifications: ClassificationDefinition[] = [];
+
+  for (const [name, classDef] of Object.entries(config.classes)) {
+    const examples = loadExamples(classDef.examples);
+    if (examples.length === 0) {
+      console.warn(`[classifications] class '${name}' has no examples, skipping`);
+      continue;
+    }
+
+    classifications.push({
+      name,
+      description: classDef.description,
+      examples,
+      suggestedTier: inferTier(classDef.model),
+      requiredCapabilities: classDef.capabilities as ModelCapability[],
+      expectedOutputScale: classDef.outputScale,
+    });
+  }
+
+  return classifications;
+}
+
+const routingConfig = loadRoutingConfig();
+export const defaultClassifications: ClassificationDefinition[] = buildClassifications(routingConfig);
 
 export function loadClassifications(
   custom?: ClassificationDefinition[]

@@ -1,8 +1,9 @@
 import { SmartRouter } from "../router/router.js";
 import { SemanticClassifier } from "../analyzers/semantic-classifier.js";
 import { ModelRegistry } from "../models/registry.js";
-import { defaultRouterConfig, createRouterConfig } from "../config/defaults.js";
+import { createRouterConfig } from "../config/defaults.js";
 import { defaultClassifications } from "../config/classifications.js";
+import { loadRoutingConfig, getModelForClass, getClassForCommand, getFallbackModel } from "../config/routing-config.js";
 import type { RoutingContext, RoutingDecision, UserPreferences, ModelProvider, ModelTier } from "../types/index.js";
 
 export interface SmartRouterPluginConfig {
@@ -39,27 +40,15 @@ export interface ResolveResult {
   strippedPrompt?: string;
 }
 
-const ROUTE_PREFIXES: Record<string, ModelTier> = {
-  "/simple": "budget",
-  "/quick": "budget",
-  "/cheap": "budget",
-  "/coding": "mid",
-  "/code": "mid",
-  "/creative": "mid",
-  "/write": "mid",
-  "/action": "mid",
-  "/do": "mid",
-  "/reason": "frontier",
-  "/think": "frontier",
-  "/best": "frontier",
-};
-
-export function parseRoutePrefix(prompt: string): { tier: ModelTier; stripped: string } | null {
+export function parseRoutePrefix(prompt: string): { className: string; stripped: string } | null {
+  const config = loadRoutingConfig();
   const trimmed = prompt.trimStart();
-  for (const [prefix, tier] of Object.entries(ROUTE_PREFIXES)) {
-    if (trimmed.toLowerCase().startsWith(prefix + " ") || trimmed.toLowerCase() === prefix) {
-      const stripped = trimmed.slice(prefix.length).trim();
-      return { tier, stripped: stripped || trimmed };
+  const lower = trimmed.toLowerCase();
+
+  for (const [command, className] of Object.entries(config.commands)) {
+    if (lower.startsWith(command + " ") || lower === command) {
+      const stripped = trimmed.slice(command.length).trim();
+      return { className, stripped: stripped || trimmed };
     }
   }
   return null;
@@ -68,6 +57,7 @@ export function parseRoutePrefix(prompt: string): { tier: ModelTier; stripped: s
 export class SmartRouterBridge {
   private router: SmartRouter | null = null;
   private classifier: SemanticClassifier | null = null;
+  private registry: ModelRegistry | null = null;
   private initPromise: Promise<void> | null = null;
   private initialized = false;
   private initFailed = false;
@@ -92,8 +82,9 @@ export class SmartRouterBridge {
       this.classifier = new SemanticClassifier(defaultClassifications);
       await this.classifier.initialize();
 
+      const fallback = this.config.fallbackModel || getFallbackModel();
       const routerConfig = createRouterConfig({
-        fallbackModel: this.config.fallbackModel,
+        fallbackModel: fallback,
       });
       if (this.config.strategyWeights) {
         for (const strategy of routerConfig.strategies) {
@@ -103,8 +94,8 @@ export class SmartRouterBridge {
         }
       }
 
-      const registry = new ModelRegistry();
-      this.router = new SmartRouter(routerConfig, registry);
+      this.registry = new ModelRegistry();
+      this.router = new SmartRouter(routerConfig, this.registry);
       this.router.setSemanticClassifier(this.classifier);
 
       this.initialized = true;
@@ -127,15 +118,14 @@ export class SmartRouterBridge {
 
     const prefixMatch = parseRoutePrefix(prompt);
     if (prefixMatch) {
-      return this.resolveByTier(prefixMatch.tier, prefixMatch.stripped, hookContext);
+      return this.resolveByClass(prefixMatch.className, prefixMatch.stripped, hookContext);
     }
 
     try {
-      const initTimeout = this.config.initTimeoutMs;
       await Promise.race([
         this.initialize(),
         new Promise<never>((_, reject) =>
-          setTimeout(() => reject(new Error("init timeout")), initTimeout)
+          setTimeout(() => reject(new Error("init timeout")), this.config.initTimeoutMs)
         ),
       ]);
     } catch {
@@ -143,7 +133,7 @@ export class SmartRouterBridge {
       return null;
     }
 
-    if (!this.router) return null;
+    if (!this.router || !this.registry) return null;
 
     try {
       const routingContext = this.buildRoutingContext(prompt, hookContext);
@@ -155,12 +145,41 @@ export class SmartRouterBridge {
         ),
       ]);
 
+      const classifiedName = this.extractClassFromDecision(decision);
+      if (classifiedName) {
+        const configModel = getModelForClass(classifiedName);
+        if (configModel) {
+          const profile = this.registry.get(configModel);
+          if (profile) {
+            const provider = profile.provider;
+            const modelName = profile.modelId;
+
+            if (this.config.logDecisions) {
+              this.logger?.info?.(
+                `smart-router: routed to ${provider}/${modelName} (class=${classifiedName}, config-mapped)` +
+                  (hookContext?.sessionKey ? ` session=${hookContext.sessionKey}` : "")
+              );
+            }
+
+            return {
+              modelOverride: modelName,
+              providerOverride: provider,
+              decision: {
+                ...decision,
+                selectedModel: profile,
+                reason: `Classification: ${classifiedName} → config model: ${configModel}`,
+              },
+            };
+          }
+        }
+      }
+
       const provider = decision.selectedModel.provider;
       const modelName = decision.selectedModel.modelId;
 
       if (this.config.logDecisions) {
         this.logger?.info?.(
-          `smart-router: routed to ${provider}/${modelName} (score=${decision.score.toFixed(3)}, reason=${decision.reason})` +
+          `smart-router: routed to ${provider}/${modelName} (score=${decision.score.toFixed(3)}, scorer-picked)` +
             (hookContext?.sessionKey ? ` session=${hookContext.sessionKey}` : "")
         );
       }
@@ -177,11 +196,22 @@ export class SmartRouterBridge {
     }
   }
 
-  private async resolveByTier(
-    tier: ModelTier,
+  private extractClassFromDecision(decision: RoutingDecision): string | null {
+    const match = decision.reason.match(/^Classification:\s*(\w+)/);
+    return match ? match[1] : null;
+  }
+
+  private async resolveByClass(
+    className: string,
     strippedPrompt: string,
     hookContext?: { agentId?: string; sessionKey?: string; sessionId?: string; channelId?: string }
   ): Promise<ResolveResult | null> {
+    const configModel = getModelForClass(className);
+    if (!configModel) {
+      this.logger?.warn?.(`smart-router: unknown class '${className}' from command`);
+      return null;
+    }
+
     try {
       await Promise.race([
         this.initialize(),
@@ -194,32 +224,29 @@ export class SmartRouterBridge {
       return null;
     }
 
-    if (!this.router) return null;
+    if (!this.registry) return null;
 
-    const registry = this.router.getRegistry();
-    const tierModels = registry.getByTier(tier);
-
-    if (tierModels.length === 0) {
-      this.logger?.warn?.(`smart-router: no models available for forced tier '${tier}'`);
+    const profile = this.registry.get(configModel);
+    if (!profile) {
+      this.logger?.warn?.(`smart-router: model '${configModel}' for class '${className}' not found in registry`);
       return null;
     }
 
-    const model = tierModels[0];
-    const provider = model.provider;
-    const modelName = model.modelId;
+    const provider = profile.provider;
+    const modelName = profile.modelId;
 
     this.logger?.info?.(
-      `smart-router: forced route to ${provider}/${modelName} (tier=${tier}, prefix command)` +
+      `smart-router: forced route to ${provider}/${modelName} (class=${className}, command)` +
         (hookContext?.sessionKey ? ` session=${hookContext.sessionKey}` : "")
     );
 
     const decision: RoutingDecision = {
-      selectedModel: model,
-      reason: `Forced route via slash command (tier: ${tier})`,
+      selectedModel: profile,
+      reason: `Forced route via /${className} command → ${configModel}`,
       score: 1.0,
       alternativeModels: [],
       estimatedCost: 0,
-      strategy: "forced-prefix",
+      strategy: "forced-command",
       timestamp: Date.now(),
     };
 
