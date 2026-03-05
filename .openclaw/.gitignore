@@ -1,0 +1,7 @@
+canvas/
+cron/
+sessions/
+update-check.json
+agents/main/agent/models.json
+agents/main/sessions/
+*.log
