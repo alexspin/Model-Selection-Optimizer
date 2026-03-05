@@ -1,0 +1,14 @@
+{
+  "google": [
+    {
+      "profileId": "default",
+      "credential": {
+        "type": "api_key",
+        "keyRef": {
+          "source": "env",
+          "id": "GOOGLE_API_KEY"
+        }
+      }
+    }
+  ]
+}

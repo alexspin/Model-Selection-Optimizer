@@ -1,10 +1,46 @@
 import { spawn } from "child_process";
-import { existsSync, readFileSync } from "fs";
+import { existsSync, readFileSync, mkdirSync, copyFileSync } from "fs";
 import { homedir } from "os";
-import { join } from "path";
+import { join, dirname } from "path";
+import { fileURLToPath } from "url";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const CONFIG_PATH = join(homedir(), ".openclaw", "openclaw.json");
 const DEFAULT_PORT = 18789;
+const PROJECT_ROOT = join(__dirname, "..");
+const PROJECT_CONFIG_DIR = join(PROJECT_ROOT, "config");
+
+function ensureConfig(): void {
+  if (!existsSync(PROJECT_CONFIG_DIR)) {
+    console.warn(`Config template dir not found: ${PROJECT_CONFIG_DIR}`);
+    return;
+  }
+
+  const openclawDir = join(homedir(), ".openclaw");
+  const workspaceDir = join(openclawDir, "workspace");
+  const agentDir = join(openclawDir, "agents", "main", "agent");
+
+  const copies: [string, string][] = [
+    [join(PROJECT_CONFIG_DIR, "openclaw", "openclaw.json"), join(openclawDir, "openclaw.json")],
+    [join(PROJECT_CONFIG_DIR, "agent", "auth-profiles.json"), join(agentDir, "auth-profiles.json")],
+    [join(PROJECT_CONFIG_DIR, "workspace", "IDENTITY.md"), join(workspaceDir, "IDENTITY.md")],
+    [join(PROJECT_CONFIG_DIR, "workspace", "SOUL.md"), join(workspaceDir, "SOUL.md")],
+  ];
+
+  for (const [src, dest] of copies) {
+    if (!existsSync(src)) {
+      console.warn(`Config template missing: ${src}`);
+      continue;
+    }
+    if (!existsSync(dest)) {
+      mkdirSync(dirname(dest), { recursive: true });
+      copyFileSync(src, dest);
+      console.log(`Installed config: ${dest}`);
+    }
+  }
+}
 
 function getPort(): number {
   try {
@@ -16,8 +52,10 @@ function getPort(): number {
 }
 
 function startGateway(): void {
+  ensureConfig();
+
   if (!existsSync(CONFIG_PATH)) {
-    console.error("OpenClaw config not found. Run: npm run setup");
+    console.error("OpenClaw config not found. Run: npm run install-config");
     process.exit(1);
   }
 

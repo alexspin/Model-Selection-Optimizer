@@ -10,7 +10,8 @@
     "start": "tsx src/start-gateway.ts",
     "setup": "tsx src/setup.ts",
     "gateway": "tsx src/start-gateway.ts",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "install-config": "bash scripts/install-config.sh"
   },
   "keywords": [
     "openclaw",
