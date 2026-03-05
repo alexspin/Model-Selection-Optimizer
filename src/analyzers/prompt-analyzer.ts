@@ -26,8 +26,8 @@ function complexityFromClassifications(
   const tier = topResult.definition.suggestedTier;
 
   if (tier === "frontier" || tokenCount > 2000) return "complex";
-  if (tier === "mid" || tokenCount > 500 || results.length >= 3) return "moderate";
   if (tier === "budget" || tier === "local") return "simple";
+  if (tier === "mid" || tokenCount > 500) return "moderate";
 
   return "moderate";
 }

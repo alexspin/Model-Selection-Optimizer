@@ -32,13 +32,15 @@ export const complexityStrategy: RoutingStrategy = {
     const promptRank = complexityRank[prompt.complexity];
 
     if (prompt.complexity === "complex" && model.tier === "frontier") return 1.0;
-    if (prompt.complexity === "complex" && model.tier === "mid") return 0.7;
+    if (prompt.complexity === "complex" && model.tier === "mid") return 0.6;
+    if (prompt.complexity === "complex" && model.tier === "budget") return 0.2;
     if (prompt.complexity === "moderate" && model.tier === "mid") return 1.0;
-    if (prompt.complexity === "moderate" && model.tier === "frontier") return 0.6;
-    if (prompt.complexity === "moderate" && model.tier === "budget") return 0.7;
+    if (prompt.complexity === "moderate" && model.tier === "frontier") return 0.5;
+    if (prompt.complexity === "moderate" && model.tier === "budget") return 0.6;
     if (prompt.complexity === "simple" && model.tier === "budget") return 1.0;
     if (prompt.complexity === "simple" && model.tier === "local") return 1.0;
-    if (prompt.complexity === "simple" && model.tier === "mid") return 0.5;
+    if (prompt.complexity === "simple" && model.tier === "mid") return 0.3;
+    if (prompt.complexity === "simple" && model.tier === "frontier") return 0.1;
 
     const diff = Math.abs(modelRank - promptRank);
     return Math.max(0, 1.0 - diff * 0.3);
