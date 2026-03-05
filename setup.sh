@@ -101,8 +101,49 @@ else
   echo "  No openclaw.json found. Create .openclaw/openclaw.json with the plugin config."
 fi
 
+# --- Patch IDENTITY.md ---
+step "6. Workspace identity guidance"
+
+IDENTITY_BLOCK='## Model Identity
+
+This assistant uses smart model routing — different turns may be handled by different AI models. When asked what model you are, report your TRUE underlying model identity (e.g. Claude Sonnet, GPT-4o, Gemini Flash, etc.), not the configured default. If you genuinely do not know your own model name, say so honestly rather than guessing.'
+
+if [ -n "$CONFIG_DIR" ]; then
+  WORKSPACE_DIR="$CONFIG_DIR/workspace"
+  IDENTITY_FILE="$WORKSPACE_DIR/IDENTITY.md"
+
+  if [ -f "$IDENTITY_FILE" ] && grep -q "## Model Identity" "$IDENTITY_FILE"; then
+    info "Model Identity guidance already present in IDENTITY.md — skipping"
+  else
+    echo ""
+    echo "  The smart-router plugin works best when the agent knows to report"
+    echo "  its true model identity. This adds the following to IDENTITY.md:"
+    echo ""
+    echo -e "  ${DIM}## Model Identity"
+    echo -e "  This assistant uses smart model routing — different turns may be"
+    echo -e "  handled by different AI models. When asked what model you are,"
+    echo -e "  report your TRUE underlying model identity...${RESET}"
+    echo ""
+    read -rp "  Add Model Identity guidance to IDENTITY.md? [y/N] " REPLY
+    if [[ "$REPLY" =~ ^[Yy]$ ]]; then
+      mkdir -p "$WORKSPACE_DIR"
+      if [ ! -f "$IDENTITY_FILE" ]; then
+        echo "# IDENTITY.md" > "$IDENTITY_FILE"
+        echo "" >> "$IDENTITY_FILE"
+      fi
+      echo "" >> "$IDENTITY_FILE"
+      echo "$IDENTITY_BLOCK" >> "$IDENTITY_FILE"
+      info "Added Model Identity guidance to $IDENTITY_FILE"
+    else
+      warn "Skipped — you can add it manually later (see INSTALL.md)"
+    fi
+  fi
+else
+  warn "No .openclaw directory found — skipping IDENTITY.md setup"
+fi
+
 # --- Verify ---
-step "6. Verification"
+step "7. Verification"
 
 if [ -f "dist/plugin/index.js" ] && [ -f "dist/plugin/openclaw.plugin.json" ]; then
   info "Plugin entry: dist/plugin/index.js"
