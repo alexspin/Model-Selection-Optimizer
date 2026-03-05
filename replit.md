@@ -18,7 +18,7 @@ A TypeScript extension module for OpenClaw (v2026.3.2) that dynamically selects 
 ### Scripts
 - `npm run setup` — health check
 - `npm run gateway` / `npm start` — start OpenClaw gateway
-- `npm run dev` — router demo with all 10 classification categories
+- `npm run dev` — router demo with 5 classification categories
 - `npm run build` — compile TypeScript to `dist/`
 - `npm run typecheck` — type check without emitting
 
@@ -32,25 +32,20 @@ src/
 ├── types/index.ts                   # All TypeScript interfaces + Zod schemas
 ├── models/registry.ts               # Model catalog (8 models, real pricing)
 ├── analyzers/
-│   ├── prompt-analyzer.ts           # Regex fallback + semantic-aware analyzer
+│   ├── prompt-analyzer.ts           # Confidence-aware complexity detection
 │   └── semantic-classifier.ts       # Embedding-based prompt classifier (REAL)
 ├── config/
 │   ├── defaults.ts                  # Default router config (strategy weights)
-│   ├── classifications.ts           # 10 classification categories (loads examples from JSON)
-│   └── examples/                    # 50 example prompts per category (JSON files)
-│       ├── simple-question.json
-│       ├── code-generation.json
-│       ├── code-debugging.json
-│       ├── deep-reasoning.json
-│       ├── creative-writing.json
-│       ├── summarization.json
-│       ├── data-analysis.json
-│       ├── translation.json
-│       ├── tool-use.json
-│       └── conversation.json
+│   ├── classifications.ts           # 5 classification categories (loads examples from JSON)
+│   └── examples/                    # 25 example prompts per category (JSON files)
+│       ├── simple.json
+│       ├── coding.json
+│       ├── reasoning.json
+│       ├── creative.json
+│       └── action.json
 ├── plugin/
 │   ├── index.ts                     # OpenClaw plugin entry (~35 lines, 2 hooks)
-│   ├── bridge.ts                    # SmartRouterBridge adapter (lazy init, timeouts, graceful fallback)
+│   ├── bridge.ts                    # SmartRouterBridge adapter (lazy init, timeouts, slash-prefix routing)
 │   └── openclaw.plugin.json         # Plugin manifest (id, configSchema, uiHints)
 ├── router/
 │   ├── router.ts                    # SmartRouter orchestrator
@@ -85,13 +80,35 @@ docs/
 - `zod` — schema validation
 - `tiktoken` — token counting (installed, not yet integrated)
 
+## Classification Categories (5)
+| Category | Tier | Capabilities | Output Scale |
+|----------|------|-------------|-------------|
+| `simple` | budget | text-generation | short |
+| `coding` | mid | code-generation | long |
+| `reasoning` | frontier | reasoning | long |
+| `creative` | mid | creative-writing | long |
+| `action` | mid | function-calling | short |
+
+## Slash-Prefix Route Forcing
+Users can bypass classification by starting a prompt with a slash command:
+- `/simple`, `/quick`, `/cheap` → budget tier
+- `/coding`, `/code`, `/creative`, `/write`, `/action`, `/do` → mid tier
+- `/reason`, `/think`, `/best` → frontier tier
+
+The prefix is stripped before the prompt reaches the model.
+
 ## OpenClaw Plugin Integration
 - Plugin registers two hooks:
-  - `before_model_resolve` — picks the best model via SmartRouter
+  - `before_model_resolve` — picks the best model via SmartRouter (or slash-prefix override)
   - `before_prompt_build` — injects model identity context so models self-identify correctly
 - Plugin entry: `src/plugin/index.ts` (thin wrapper, ~35 lines)
-- Bridge: `src/plugin/bridge.ts` (lazy init, timeout protection, graceful degradation)
+- Bridge: `src/plugin/bridge.ts` (lazy init, timeout protection, slash-prefix parsing, graceful degradation)
 - All routing intelligence stays in `src/router/`, `src/analyzers/`, `src/strategies/`
+
+## Confidence Thresholds
+- LOW = 0.35 — below this, classification defaults to "simple" (budget tier)
+- If top classification is mid/frontier tier and confidence >= 0.35, the tier is trusted
+- Frontier tier or long prompts (>2000 tokens) → "complex" complexity
 
 ## OpenClaw Config
 - `.openclaw/` directory lives inside the project tree (not in `~/`)

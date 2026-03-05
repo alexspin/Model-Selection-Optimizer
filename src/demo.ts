@@ -6,7 +6,7 @@ import { defaultClassifications } from "./config/classifications.js";
 import type { RoutingContext, ConversationTurn } from "./types/index.js";
 
 async function runDemo() {
-  console.log("=== OpenClaw Smart Model Router — Semantic Classification Demo ===\n");
+  console.log("=== OpenClaw Smart Model Router — 5-Category Demo ===\n");
 
   const config = createRouterConfig({ logging: true });
   const router = new SmartRouter(config);
@@ -32,16 +32,16 @@ async function runDemo() {
   };
 
   const testPrompts = [
-    { label: "Simple Question", prompt: "What's the capital of Japan?" },
-    { label: "Code Generation", prompt: "Write a TypeScript function that implements a LRU cache with generics and proper type safety." },
-    { label: "Code Debugging", prompt: "My function returns undefined instead of the expected array. Here's the code, can you figure out why?" },
-    { label: "Deep Reasoning", prompt: "Analyze the trade-offs between using a relational database versus a document store for a social media application. Consider scalability, query patterns, and developer experience." },
-    { label: "Creative Writing", prompt: "Write a short blog post about how AI is changing the way developers work. Keep it engaging and personal." },
-    { label: "Summarization", prompt: "Summarize the key points from our conversation so far. Give me a brief recap." },
-    { label: "Data Analysis", prompt: "I have a CSV with 50,000 rows of sales data. Calculate the monthly growth rate and identify the top performing regions." },
-    { label: "Translation", prompt: "Translate this technical documentation into Spanish, keeping the code examples intact." },
-    { label: "Tool Use", prompt: "Search the web for the latest TypeScript release notes and create a summary file." },
-    { label: "Conversation", prompt: "Thanks, that was helpful! Can you elaborate a bit more on the last point?" },
+    { label: "Simple (fact)", prompt: "What's the capital of Japan?" },
+    { label: "Simple (follow-up)", prompt: "Thanks, that was helpful! Can you elaborate?" },
+    { label: "Coding (write)", prompt: "Write a TypeScript function that implements a LRU cache with generics and proper type safety." },
+    { label: "Coding (debug)", prompt: "My function returns undefined instead of the expected array. Here's the code, can you figure out why?" },
+    { label: "Reasoning", prompt: "Analyze the trade-offs between using a relational database versus a document store for a social media app. Consider scalability, query patterns, and developer experience." },
+    { label: "Creative (content)", prompt: "Write a short blog post about how AI is changing the way developers work. Keep it engaging." },
+    { label: "Creative (translate)", prompt: "Translate this technical documentation into Spanish, keeping the code examples intact." },
+    { label: "Action (tool)", prompt: "Search the web for the latest TypeScript release notes and create a summary file." },
+    { label: "Action (data)", prompt: "I have a CSV with 50,000 rows of sales data. Calculate the monthly growth rate and identify top regions." },
+    { label: "Simple (chat)", prompt: "Got it, what's next?" },
   ];
 
   for (const test of testPrompts) {

@@ -36,6 +36,33 @@ export interface ResolveResult {
   modelOverride: string;
   providerOverride: string;
   decision: RoutingDecision;
+  strippedPrompt?: string;
+}
+
+const ROUTE_PREFIXES: Record<string, ModelTier> = {
+  "/simple": "budget",
+  "/quick": "budget",
+  "/cheap": "budget",
+  "/coding": "mid",
+  "/code": "mid",
+  "/creative": "mid",
+  "/write": "mid",
+  "/action": "mid",
+  "/do": "mid",
+  "/reason": "frontier",
+  "/think": "frontier",
+  "/best": "frontier",
+};
+
+export function parseRoutePrefix(prompt: string): { tier: ModelTier; stripped: string } | null {
+  const trimmed = prompt.trimStart();
+  for (const [prefix, tier] of Object.entries(ROUTE_PREFIXES)) {
+    if (trimmed.toLowerCase().startsWith(prefix + " ") || trimmed.toLowerCase() === prefix) {
+      const stripped = trimmed.slice(prefix.length).trim();
+      return { tier, stripped: stripped || trimmed };
+    }
+  }
+  return null;
 }
 
 export class SmartRouterBridge {
@@ -98,6 +125,11 @@ export class SmartRouterBridge {
   ): Promise<ResolveResult | null> {
     if (!this.config.enabled) return null;
 
+    const prefixMatch = parseRoutePrefix(prompt);
+    if (prefixMatch) {
+      return this.resolveByTier(prefixMatch.tier, prefixMatch.stripped, hookContext);
+    }
+
     try {
       const initTimeout = this.config.initTimeoutMs;
       await Promise.race([
@@ -146,6 +178,62 @@ export class SmartRouterBridge {
       this.logger?.warn?.(`smart-router: routing failed, falling back to default: ${msg}`);
       return null;
     }
+  }
+
+  private async resolveByTier(
+    tier: ModelTier,
+    strippedPrompt: string,
+    hookContext?: { agentId?: string; sessionKey?: string; sessionId?: string; channelId?: string }
+  ): Promise<ResolveResult | null> {
+    try {
+      await Promise.race([
+        this.initialize(),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("init timeout")), this.config.initTimeoutMs)
+        ),
+      ]);
+    } catch {
+      this.logger?.warn?.("smart-router: skipping forced route (init failed)");
+      return null;
+    }
+
+    if (!this.router) return null;
+
+    const registry = this.router.getRegistry();
+    const tierModels = registry.getByTier(tier);
+
+    if (tierModels.length === 0) {
+      this.logger?.warn?.(`smart-router: no models available for forced tier '${tier}'`);
+      return null;
+    }
+
+    const model = tierModels[0];
+    const provider = model.provider;
+    const modelName = model.id.startsWith(`${provider}/`)
+      ? model.id.slice(provider.length + 1)
+      : model.id;
+
+    this.logger?.info?.(
+      `smart-router: forced route to ${provider}/${modelName} (tier=${tier}, prefix command)` +
+        (hookContext?.sessionKey ? ` session=${hookContext.sessionKey}` : "")
+    );
+
+    const decision: RoutingDecision = {
+      selectedModel: model,
+      reason: `Forced route via slash command (tier: ${tier})`,
+      score: 1.0,
+      alternativeModels: [],
+      estimatedCost: 0,
+      strategy: "forced-prefix",
+      timestamp: Date.now(),
+    };
+
+    return {
+      modelOverride: modelName,
+      providerOverride: provider,
+      decision,
+      strippedPrompt,
+    };
   }
 
   private buildRoutingContext(

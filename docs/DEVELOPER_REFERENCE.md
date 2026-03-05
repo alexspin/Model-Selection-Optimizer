@@ -146,20 +146,17 @@ interface ClassificationDefinition {
 }
 ```
 
-### Default Categories (10)
+### Default Categories (5)
 
 | Category | Suggested Tier | Capabilities | Output Scale |
 |---|---|---|---|
-| `simple-question` | budget | text-generation | short |
-| `code-generation` | mid | code-generation | long |
-| `code-debugging` | mid | code-generation, reasoning | medium |
-| `deep-reasoning` | frontier | reasoning | long |
-| `creative-writing` | mid | creative-writing | long |
-| `summarization` | budget | summarization | medium |
-| `data-analysis` | mid | data-analysis | medium |
-| `translation` | mid | translation | medium |
-| `tool-use` | mid | function-calling | short |
-| `conversation` | budget | text-generation | short |
+| `simple` | budget | text-generation | short |
+| `coding` | mid | code-generation | long |
+| `reasoning` | frontier | reasoning | long |
+| `creative` | mid | creative-writing | long |
+| `action` | mid | function-calling | short |
+
+Each category has 25 strategically-chosen example prompts stored in `src/config/examples/*.json`. The examples are designed for clear semantic separation with minimal overlap between categories.
 
 ### Customizing Categories
 
@@ -462,7 +459,7 @@ Change weights in `src/config/defaults.ts` or pass overrides to `createRouterCon
 | Component | Status |
 |---|---|
 | Semantic Classifier (`semantic-classifier.ts`) | Runs locally, uses HuggingFace transformers.js, real embeddings |
-| 10 Classification Categories (`classifications.ts`) | Config-driven, extensible at runtime |
+| 5 Classification Categories (`classifications.ts`) | Config-driven, 25 examples each, extensible at runtime |
 | Prompt Analyzer — semantic path (`prompt-analyzer.ts`) | Converts classifications to PromptAnalysis |
 | Prompt Analyzer — regex fallback (`prompt-analyzer.ts`) | Works without classifier attached |
 | 5 Scoring Strategies (`strategies/*.ts`) | All fully implemented with real scoring logic |
@@ -479,7 +476,7 @@ Change weights in `src/config/defaults.ts` or pass overrides to `createRouterCon
 |---|---|---|
 | Meta-Router (`meta-router.ts`) | Prompts are built correctly but no API call is made. Returns first candidate. | Wire to an LLM API (e.g., GPT-4o Mini) to parse routing prompts. |
 | Zod Runtime Validation | Schemas defined, not called at boundaries. | Add `.parse()` at config/model registration. |
-| OpenClaw Plugin Integration | **REAL** — Plugin registers `before_model_resolve` hook to override model per turn. | — |
+| OpenClaw Plugin Integration | **REAL** — Plugin registers `before_model_resolve` + `before_prompt_build` hooks, with slash-prefix route forcing. | — |
 | Quality Score Feedback | `updateQualityScore()` / `updateLatency()` exist but nothing calls them. | Add post-response hooks to feed real performance data back. |
 | tiktoken Integration | Package installed but not used. Token estimation uses `chars / 3.5`. | Replace heuristic with `tiktoken` for accurate counts. |
 
@@ -489,7 +486,10 @@ Change weights in `src/config/defaults.ts` or pass overrides to `createRouterCon
 
 ### How It Works
 
-The smart router is integrated as an OpenClaw plugin via the `before_model_resolve` lifecycle hook. This hook fires before every agent turn, receives the user's prompt, and can return a `modelOverride` to change which model handles that turn.
+The smart router is integrated as an OpenClaw plugin via two lifecycle hooks:
+
+1. **`before_model_resolve`** — fires before every agent turn, classifies the prompt, and returns a `modelOverride` to select the best model
+2. **`before_prompt_build`** — injects model identity context so routed models self-identify correctly
 
 ```
 User sends message
@@ -500,10 +500,19 @@ OpenClaw Gateway receives message
     ▼
 before_model_resolve hook fires  ◄── smart-router plugin intercepts here
     │
+    ├── Check for slash-prefix (e.g., /best, /cheap, /code)
+    │   ├── If prefix found → force tier, strip prefix
+    │   └── If no prefix → semantic classification pipeline
+    │
     ├── SmartRouterBridge.resolveModel(prompt, ctx)
     │       ├── Lazy-init: SemanticClassifier + SmartRouter (first call only)
     │       ├── Classify prompt → score models → pick best
     │       └── Return { modelOverride, providerOverride }
+    │
+    ▼
+before_prompt_build hook fires
+    │
+    ├── Inject: "[Smart Router] This turn is handled by {Model Name}"
     │
     ▼
 OpenClaw uses overridden model for this turn
@@ -512,16 +521,27 @@ OpenClaw uses overridden model for this turn
 Agent runs with selected model
 ```
 
+### Slash-Prefix Route Forcing
+
+Users can bypass classification by starting a prompt with a slash command. The prefix is stripped before the prompt reaches the model.
+
+| Prefix | Tier | Example |
+|--------|------|---------|
+| `/simple`, `/quick`, `/cheap` | budget | `/cheap What's 2+2?` |
+| `/coding`, `/code`, `/creative`, `/write`, `/action`, `/do` | mid | `/code Write a binary search` |
+| `/reason`, `/think`, `/best` | frontier | `/best Analyze this architecture` |
+
 ### Plugin Files
 
 ```
 src/plugin/
-├── index.ts                 # Plugin entry point (~25 lines)
+├── index.ts                 # Plugin entry point (~35 lines)
 │                            #   - Reads config from api.pluginConfig
 │                            #   - Creates SmartRouterBridge
-│                            #   - Registers before_model_resolve hook
+│                            #   - Registers before_model_resolve + before_prompt_build hooks
 ├── bridge.ts                # Adapter between OpenClaw hooks and SmartRouter
 │                            #   - Lazy initialization (loads embedding model on first call)
+│                            #   - Slash-prefix parsing (parseRoutePrefix)
 │                            #   - Timeout protection for init and routing
 │                            #   - Graceful degradation (returns void on failure)
 │                            #   - Configurable via SmartRouterPluginConfig
@@ -581,16 +601,19 @@ Each classification category has a dedicated test phrase you can paste into the 
 
 | Category | Expected Tier | Expected Model | Test Phrase |
 |---|---|---|---|
-| `simple-question` | budget | Gemini Flash / Haiku | `What is the boiling point of water in Fahrenheit? — also, which model are you?` |
-| `code-generation` | mid | Claude Sonnet | `Write me a Python function that sorts a list of dictionaries by a given key (and please mention what model is responding)` |
-| `code-debugging` | mid | Claude Sonnet | `My Node.js server crashes with ECONNREFUSED when connecting to PostgreSQL on startup — by the way, can you identify yourself as a model?` |
-| `deep-reasoning` | frontier | GPT-4o / Gemini Pro | `Evaluate the long-term architectural trade-offs between event sourcing and traditional CRUD for a financial ledger system. Before you begin, state which AI model you are.` |
-| `creative-writing` | mid | Claude Sonnet | `Draft a whimsical short story about a lighthouse keeper who discovers messages in bottles from the future, and start by introducing yourself as a model` |
-| `summarization` | budget | Gemini Flash / Haiku | `Condense the following 12-page quarterly earnings report into five bullet points highlighting key metrics — oh and let me know what model handled this` |
-| `data-analysis` | mid | Claude Sonnet | `Calculate the p-value and confidence interval for this A/B test dataset with 50000 samples per variant; also tell me your model name` |
-| `translation` | mid | Claude Sonnet | `Translate this product listing from English into Japanese and Brazilian Portuguese preserving the marketing tone — as a first line, reveal which model you are` |
-| `tool-use` | mid | Claude Sonnet | `Search the npm registry for the latest version of express and show me its dependency tree, and while you are at it, say what model is answering` |
-| `conversation` | budget | Gemini Flash / Haiku | `Yeah that makes sense, go ahead with that approach — quick question though, what model am I talking to?` |
+| `simple` | budget | Gemini Flash / Haiku | `What is the boiling point of water in Fahrenheit? — also, which model are you?` |
+| `coding` | mid | Claude Sonnet | `Write me a Python function that sorts a list of dictionaries by a given key (and please mention what model is responding)` |
+| `reasoning` | frontier | GPT-4o / Gemini Pro | `Evaluate the long-term architectural trade-offs between event sourcing and traditional CRUD for a financial ledger system. Before you begin, state which AI model you are.` |
+| `creative` | mid | Claude Sonnet | `Draft a whimsical short story about a lighthouse keeper who discovers messages in bottles from the future, and start by introducing yourself as a model` |
+| `action` | mid | Claude Sonnet | `Search the npm registry for the latest version of express and show me its dependency tree, and while you are at it, say what model is answering` |
+
+You can also test slash-prefix routing:
+
+| Command | Expected Tier | Test Phrase |
+|---------|---------------|-------------|
+| `/cheap` | budget | `/cheap What's 2+2? And which model are you?` |
+| `/code` | mid | `/code Write a binary search in TypeScript, and identify yourself` |
+| `/best` | frontier | `/best Analyze the trade-offs of microservices vs monolith. State your model name first.` |
 
 The "Expected Model" column reflects default strategy weights and registry scores. Actual routing depends on enabled models, provider availability, and any config overrides.
 

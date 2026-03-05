@@ -36,12 +36,9 @@ function complexityFromClassifications(
   if (tier === "frontier" || tokenCount > 2000) return "complex";
   if (tier === "budget" || tier === "local") return "simple";
 
-  if (topConfidence < HIGH_CONFIDENCE_THRESHOLD) {
-    if (tokenCount < 100) return "simple";
-    return "moderate";
-  }
+  if (tier === "mid") return "moderate";
 
-  if (tier === "mid" || tokenCount > 500) return "moderate";
+  if (tokenCount > 500) return "moderate";
 
   return "moderate";
 }
@@ -107,20 +104,13 @@ const REASONING_INDICATORS = [
 const CREATIVE_INDICATORS = [
   /\b(compose|draft|imagine|story|poem|essay|narrative)\b/i,
   /\b(creative|artistic|fictional|metaphor|style|tone|voice)\b/i,
+  /\b(translate|translation|localize|in \w+ language)\b/i,
 ];
 
-const SUMMARY_INDICATORS = [
-  /\b(summarize|summary|tldr|brief|overview|key points|main ideas|recap)\b/i,
-  /\b(condense|shorten|simplify|distill)\b/i,
-];
-
-const DATA_INDICATORS = [
-  /\b(data|csv|json|table|chart|graph|statistics|dataset|metrics)\b/i,
-  /\b(calculate|compute|aggregate|average|median|percentage)\b/i,
-];
-
-const TRANSLATION_INDICATORS = [
-  /\b(translate|translation|in \w+ language|to \w+ish|to \w+ese|to \w+an)\b/i,
+const ACTION_INDICATORS = [
+  /\b(run|execute|deploy|install|start|stop|kill|check|download|upload)\b/i,
+  /\b(file|directory|folder|process|port|server|service|cron)\b/i,
+  /\b(data|csv|json|table|chart|statistics|calculate|compute|aggregate)\b/i,
 ];
 
 const VISION_INDICATORS = [
@@ -134,9 +124,7 @@ function detectCapabilities(text: string): ModelCapability[] {
   if (CODE_INDICATORS.some((r) => r.test(text))) capabilities.add("code-generation");
   if (REASONING_INDICATORS.some((r) => r.test(text))) capabilities.add("reasoning");
   if (CREATIVE_INDICATORS.some((r) => r.test(text))) capabilities.add("creative-writing");
-  if (SUMMARY_INDICATORS.some((r) => r.test(text))) capabilities.add("summarization");
-  if (DATA_INDICATORS.some((r) => r.test(text))) capabilities.add("data-analysis");
-  if (TRANSLATION_INDICATORS.some((r) => r.test(text))) capabilities.add("translation");
+  if (ACTION_INDICATORS.some((r) => r.test(text))) capabilities.add("function-calling");
   if (VISION_INDICATORS.some((r) => r.test(text))) capabilities.add("vision");
 
   return Array.from(capabilities);

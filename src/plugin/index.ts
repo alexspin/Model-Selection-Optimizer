@@ -14,14 +14,17 @@ export default function register(api: OpenClawPluginApi) {
   const bridge = new SmartRouterBridge(config, api.logger);
 
   let lastRoutedModel: string | null = null;
+  let lastStrippedPrompt: string | null = null;
 
   api.on("before_model_resolve", async (event, ctx) => {
     const result = await bridge.resolveModel(event.prompt, ctx);
     if (!result) {
       lastRoutedModel = null;
+      lastStrippedPrompt = null;
       return;
     }
     lastRoutedModel = result.decision.selectedModel.displayName;
+    lastStrippedPrompt = result.strippedPrompt ?? null;
     return {
       modelOverride: result.modelOverride,
       providerOverride: result.providerOverride,
@@ -29,11 +32,27 @@ export default function register(api: OpenClawPluginApi) {
   });
 
   api.on("before_prompt_build", async () => {
-    if (!lastRoutedModel) return;
+    const parts: string[] = [];
+
+    if (lastRoutedModel) {
+      parts.push(
+        `[Smart Router] This turn is being handled by ${lastRoutedModel}. If asked what model you are, report "${lastRoutedModel}" — that is your true identity for this turn.`
+      );
+    }
+
+    if (lastStrippedPrompt) {
+      parts.push(
+        `[Smart Router] The user's original message used a slash-prefix command. The actual prompt (with prefix removed) is:\n${lastStrippedPrompt}`
+      );
+    }
+
+    if (parts.length === 0) return;
+
     return {
-      prependContext: `[Smart Router] This turn is being handled by ${lastRoutedModel}. If asked what model you are, report "${lastRoutedModel}" — that is your true identity for this turn.`,
+      prependContext: parts.join("\n\n"),
+      ...(lastStrippedPrompt ? { promptOverride: lastStrippedPrompt } : {}),
     };
   });
 
-  api.logger.info("smart-router: registered before_model_resolve hook");
+  api.logger.info("smart-router: registered hooks (before_model_resolve, before_prompt_build)");
 }
