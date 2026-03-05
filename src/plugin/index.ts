@@ -15,8 +15,7 @@ export default function register(api: OpenClawPluginApi) {
   const bridge = new SmartRouterBridge(config, api.logger);
   const routingConfig = loadRoutingConfig();
 
-  let lastRoutedModel: string | null = null;
-  let lastStrippedPrompt: string | null = null;
+  const sessionState = new Map<string, { routedModel: string | null; strippedPrompt: string | null }>();
 
   for (const [command, cmdConfig] of Object.entries(routingConfig.commands)) {
     const name = command.replace(/^\//, "");
@@ -37,6 +36,9 @@ export default function register(api: OpenClawPluginApi) {
 
     const lower = content.toLowerCase();
     for (const [command, cmdConfig] of Object.entries(routingConfig.commands)) {
+      if (lower === command) {
+        return;
+      }
       if (lower.startsWith(command + " ")) {
         const stripped = content.slice(command.length).trim();
         if (stripped) {
@@ -50,32 +52,43 @@ export default function register(api: OpenClawPluginApi) {
   });
 
   api.on("before_model_resolve", async (event, ctx) => {
+    const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? "unknown";
+
     const result = await bridge.resolveModel(event.prompt, ctx);
     if (!result) {
-      lastRoutedModel = null;
-      lastStrippedPrompt = null;
+      sessionState.delete(sessionKey);
       return;
     }
-    lastRoutedModel = result.decision.selectedModel.displayName;
-    lastStrippedPrompt = result.strippedPrompt ?? null;
+
+    sessionState.set(sessionKey, {
+      routedModel: result.decision.selectedModel.displayName,
+      strippedPrompt: result.strippedPrompt ?? null,
+    });
+
     return {
       modelOverride: result.modelOverride,
       providerOverride: result.providerOverride,
     };
   });
 
-  api.on("before_prompt_build", async () => {
+  api.on("before_prompt_build", async (_event, ctx) => {
+    const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? "unknown";
+    const state = sessionState.get(sessionKey);
+    sessionState.delete(sessionKey);
+
+    if (!state) return;
+
     const parts: string[] = [];
 
-    if (lastRoutedModel) {
+    if (state.routedModel) {
       parts.push(
-        `[Smart Router] This turn is being handled by ${lastRoutedModel}. If asked what model you are, report "${lastRoutedModel}" — that is your true identity for this turn.`
+        `[Smart Router] This turn is being handled by ${state.routedModel}. If asked what model you are, report "${state.routedModel}" — that is your true identity for this turn.`
       );
     }
 
-    if (lastStrippedPrompt) {
+    if (state.strippedPrompt) {
       parts.push(
-        `[Smart Router] The user's original message used a slash-prefix command. The actual prompt (with prefix removed) is:\n${lastStrippedPrompt}`
+        `[Smart Router] The user's original message used a slash-prefix command. The actual prompt (with prefix removed) is:\n${state.strippedPrompt}`
       );
     }
 
@@ -83,7 +96,7 @@ export default function register(api: OpenClawPluginApi) {
 
     return {
       prependContext: parts.join("\n\n"),
-      ...(lastStrippedPrompt ? { promptOverride: lastStrippedPrompt } : {}),
+      ...(state.strippedPrompt ? { promptOverride: state.strippedPrompt } : {}),
     };
   });
 

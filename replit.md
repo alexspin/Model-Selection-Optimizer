@@ -129,6 +129,12 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
 - If top classification confidence >= 0.35, the class's configured model is used
 - Frontier-tier models or long prompts (>2000 tokens) → "complex" complexity
 
+## Packaging & Distribution
+- **npm install**: `package.json` has `"openclaw": { "extensions": ["dist/plugin/index.js"] }` for auto-discovery
+- **Manual install**: `bash setup.sh` — installs deps, builds, prints config instructions
+- **Build**: `npm run build` — compiles TS + copies assets (routing.json, examples, manifest) to `dist/`
+- **Install guide**: `INSTALL.md` — covers npm, manual, and dev-mode installation
+
 ## Dependencies
 - `openclaw` — AI agent framework
 - `@huggingface/transformers` — local embedding model (all-MiniLM-L6-v2)

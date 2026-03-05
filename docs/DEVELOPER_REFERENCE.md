@@ -473,7 +473,6 @@ Change weights in `src/config/defaults.ts` or pass overrides to `createRouterCon
 |---|---|---|
 | Meta-Router (`meta-router.ts`) | Prompts are built correctly but no API call is made. Returns first candidate. | Wire to an LLM API (e.g., GPT-4o Mini) to parse routing prompts. |
 | Zod Runtime Validation | Schemas defined, not called at boundaries. | Add `.parse()` at config/model registration. |
-| OpenClaw Plugin Integration | **REAL** — Plugin registers `before_model_resolve` + `before_prompt_build` hooks, with slash-prefix route forcing. | — |
 | Quality Score Feedback | `updateQualityScore()` / `updateLatency()` exist but nothing calls them. | Add post-response hooks to feed real performance data back. |
 | tiktoken Integration | Package installed but not used. Token estimation uses `chars / 3.5`. | Replace heuristic with `tiktoken` for accurate counts. |
 
@@ -483,10 +482,11 @@ Change weights in `src/config/defaults.ts` or pass overrides to `createRouterCon
 
 ### How It Works
 
-The smart router is integrated as an OpenClaw plugin via two lifecycle hooks:
+The smart router uses a hybrid approach: OpenClaw's native command system for namespace protection and discoverability (commands appear in `/help`) combined with three lifecycle hooks for routing logic.
 
-1. **`before_model_resolve`** — fires before every agent turn, classifies the prompt, and returns a `modelOverride` to select the best model
-2. **`before_prompt_build`** — injects model identity context so routed models self-identify correctly
+**Registered commands (7):** `/simple`, `/cheap`, `/coding`, `/creative`, `/action`, `/reason`, `/best`
+
+**Hooks (3):** `message_received`, `before_model_resolve`, `before_prompt_build`
 
 ```
 User sends message
@@ -494,67 +494,98 @@ User sends message
     ▼
 OpenClaw Gateway receives message
     │
-    ▼
-before_model_resolve hook fires  ◄── smart-router plugin intercepts here
+    ├── Is it a bare command (e.g., just "/best")?
+    │   └── Yes → command handler returns help text, done
     │
-    ├── Check for slash-prefix (e.g., /best, /cheap, /code)
-    │   ├── If prefix found → force tier, strip prefix
-    │   └── If no prefix → semantic classification pipeline
+    ├── Is it a command with args (e.g., "/best explain quantum computing")?
+    │   └── Yes → command handler returns help text for bare commands only;
+    │       args fall through to the agent pipeline
+    │
+    ▼
+message_received hook fires (channel messages only: Telegram, Discord, etc.)
+    │
+    ├── Detects "/command <message>" pattern in channel text
+    │   └── Stores route intent (class + stripped prompt) with 30s TTL
+    │
+    ▼
+before_model_resolve hook fires
+    │
+    ├── 1. Check for stored intent from message_received
+    │   └── If found → resolve by class, consume intent
+    │
+    ├── 2. Parse prompt text for slash-prefix (TUI/webchat fallback)
+    │   └── Strips OpenClaw's sender metadata block + timestamp prefix
+    │
+    ├── 3. No command → semantic classification pipeline
+    │   └── Lazy-init classifier → classify prompt → config-driven model lookup
     │
     ├── SmartRouterBridge.resolveModel(prompt, ctx)
-    │       ├── Lazy-init: SemanticClassifier + SmartRouter (first call only)
-    │       ├── Classify prompt → score models → pick best
-    │       └── Return { modelOverride, providerOverride }
+    │       └── Return { modelOverride, providerOverride } or null (use default)
     │
     ▼
 before_prompt_build hook fires
     │
     ├── Inject: "[Smart Router] This turn is handled by {Model Name}"
+    ├── If slash-command was used: override prompt with stripped version
     │
     ▼
 OpenClaw uses overridden model for this turn
-    │
-    ▼
-Agent runs with selected model
 ```
 
-### Slash-Prefix Route Forcing
+### Commands
 
-Users can bypass classification by starting a prompt with a slash command. The prefix is stripped before the prompt reaches the model.
+All 7 commands are registered via `api.registerCommand({ acceptsArgs: false })`. This means:
+- Bare command (e.g., `/best`) → returns the help text describing the routing class
+- Command with args (e.g., `/best explain this`) → falls through to the agent pipeline, where hooks pick it up
 
-| Prefix | Tier | Example |
-|--------|------|---------|
-| `/simple`, `/quick`, `/cheap` | budget | `/cheap What's 2+2?` |
-| `/coding`, `/code`, `/creative`, `/write`, `/action`, `/do` | mid | `/code Write a binary search` |
-| `/reason`, `/think`, `/best` | frontier | `/best Analyze this architecture` |
+Each command maps to a class defined in `src/config/routing.json`:
+
+| Command | Class | Model | Use Case |
+|---------|-------|-------|----------|
+| `/simple` | simple | Gemini 2.5 Flash | Quick facts, casual chat, follow-ups |
+| `/cheap` | simple | Gemini 2.5 Flash | Alias for /simple |
+| `/coding` | coding | Claude Sonnet 4.6 | Writing code, debugging, code review |
+| `/creative` | creative | Claude Sonnet 4.6 | Blog posts, emails, translation |
+| `/action` | action | Claude Sonnet 4.6 | Tool calls, file operations |
+| `/reason` | reasoning | Gemini 2.5 Pro | Deep analysis, architecture |
+| `/best` | reasoning | Gemini 2.5 Pro | Alias for /reason |
 
 ### Plugin Files
 
 ```
 src/plugin/
-├── index.ts                 # Plugin entry point (~35 lines)
+├── index.ts                 # Plugin entry point
 │                            #   - Reads config from api.pluginConfig
 │                            #   - Creates SmartRouterBridge
-│                            #   - Registers before_model_resolve + before_prompt_build hooks
+│                            #   - Registers 7 commands from routing.json
+│                            #   - Registers 3 hooks: message_received,
+│                            #     before_model_resolve, before_prompt_build
 ├── bridge.ts                # Adapter between OpenClaw hooks and SmartRouter
 │                            #   - Lazy initialization (loads embedding model on first call)
-│                            #   - Slash-prefix parsing (parseRoutePrefix)
+│                            #   - setRouteIntent/consumeRouteIntent for cross-hook state
+│                            #   - parseRoutePrefix: TUI fallback prompt parsing
+│                            #   - extractUserMessage: strips OpenClaw sender metadata
 │                            #   - Timeout protection for init and routing
-│                            #   - Graceful degradation (returns void on failure)
-│                            #   - Configurable via SmartRouterPluginConfig
+│                            #   - Config-driven class→model resolution via routing.json
+│                            #   - Graceful degradation (returns null on failure)
 └── openclaw.plugin.json     # Plugin manifest (id, configSchema, uiHints)
 ```
 
+### Installation
+
+See [INSTALL.md](../INSTALL.md) for full installation instructions. Three options:
+
+1. **npm install** (recommended): `npm install openclaw-smart-router` — auto-discovered via the `"openclaw"` key in `package.json`
+2. **Manual drop-in**: Clone the repo, run `bash setup.sh`
+3. **Development mode**: Point `plugins.load.paths` at the TypeScript source directory
+
 ### Plugin Configuration
 
-Add to `~/.openclaw/openclaw.json`:
+Add to `.openclaw/openclaw.json`:
 
 ```json
 {
   "plugins": {
-    "load": {
-      "paths": ["/path/to/smart-model-router/src/plugin"]
-    },
     "entries": {
       "smart-router": {
         "enabled": true,
@@ -576,12 +607,15 @@ Add to `~/.openclaw/openclaw.json`:
           "preferredTier": null
         }
       }
+    },
+    "load": {
+      "paths": ["/path/to/openclaw-smart-router/src/plugin"]
     }
   }
 }
 ```
 
-All config fields are optional — defaults are applied automatically.
+All config fields are optional — defaults are applied automatically. When installed via npm, the `load.paths` entry is not needed (auto-discovery).
 
 ### Graceful Degradation
 
@@ -604,25 +638,35 @@ Each classification category has a dedicated test phrase you can paste into the 
 | `creative` | mid | Claude Sonnet | `Draft a whimsical short story about a lighthouse keeper who discovers messages in bottles from the future, and start by introducing yourself as a model` |
 | `action` | mid | Claude Sonnet | `Search the npm registry for the latest version of express and show me its dependency tree, and while you are at it, say what model is answering` |
 
-You can also test slash-prefix routing:
+You can also test command routing:
 
-| Command | Expected Tier | Test Phrase |
-|---------|---------------|-------------|
-| `/cheap` | budget | `/cheap What's 2+2? And which model are you?` |
-| `/code` | mid | `/code Write a binary search in TypeScript, and identify yourself` |
-| `/best` | frontier | `/best Analyze the trade-offs of microservices vs monolith. State your model name first.` |
+| Command | Expected Model | Test Phrase |
+|---------|----------------|-------------|
+| `/cheap` | Gemini 2.5 Flash | `/cheap What's 2+2? And which model are you?` |
+| `/coding` | Claude Sonnet 4.6 | `/coding Write a binary search in TypeScript, and identify yourself` |
+| `/best` | Gemini 2.5 Pro | `/best Analyze the trade-offs of microservices vs monolith. State your model name first.` |
 
-The "Expected Model" column reflects default strategy weights and registry scores. Actual routing depends on enabled models, provider availability, and any config overrides.
+The "Expected Model" column reflects the class→model mappings in `src/config/routing.json`. Actual routing depends on enabled models, provider availability, and any config overrides.
 
 ### Disabling the Plugin
 
 Set `enabled: false` in the plugin config, or remove the `smart-router` entry entirely. The gateway will use its default model for all turns.
 
+### Packaging
+
+The plugin supports two distribution methods:
+
+1. **npm package**: The `package.json` has an `"openclaw": { "extensions": ["dist/plugin/index.js"] }` key, which OpenClaw auto-discovers when the package is installed in `node_modules`. The `files` field ensures only `dist/`, config, and docs are published.
+
+2. **Manual/workspace**: Copy the plugin directory and add its path to `plugins.load.paths` in `openclaw.json`. Run `bash setup.sh` for guided installation.
+
+Build with `npm run build` — this compiles TypeScript to `dist/` and copies non-TS assets (routing.json, examples, plugin manifest) via `scripts/copy-assets.js`.
+
 ### Environment
 
 - OpenClaw 2026.3.2 installed as npm dependency
-- Gateway configured at `~/.openclaw/openclaw.json` (port 18789, auth: none)
-- 3 API keys configured: Anthropic, OpenAI, Google
+- Gateway configured at `.openclaw/openclaw.json` (port 18789, auth: none)
+- `OPENCLAW_HOME` env var points to the project root so OpenClaw finds `.openclaw/` in the project tree
 - Gateway starts via `npm run gateway`
 
 OpenClaw auto-detects API keys from environment variables:

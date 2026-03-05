@@ -4,22 +4,37 @@
   "description": "Smart model routing extension for OpenClaw — dynamically selects the best AI model per conversation turn",
   "type": "module",
   "main": "dist/index.js",
+  "types": "dist/index.d.ts",
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node scripts/copy-assets.js",
     "dev": "tsx src/demo.ts",
     "start": "tsx src/start-gateway.ts",
     "setup": "tsx src/setup.ts",
     "gateway": "tsx src/start-gateway.ts",
     "typecheck": "tsc --noEmit"
   },
+  "files": [
+    "dist/",
+    "src/config/routing.json",
+    "src/config/examples/",
+    "src/plugin/openclaw.plugin.json",
+    "INSTALL.md"
+  ],
   "keywords": [
     "openclaw",
+    "openclaw-plugin",
     "model-routing",
     "llm",
-    "ai-agent"
+    "ai-agent",
+    "smart-router"
   ],
   "author": "",
   "license": "ISC",
+  "openclaw": {
+    "extensions": [
+      "dist/plugin/index.js"
+    ]
+  },
   "dependencies": {
     "@huggingface/transformers": "^3.8.1",
     "@types/node": "^22.19.13",
