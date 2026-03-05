@@ -40,15 +40,29 @@ export interface ResolveResult {
   strippedPrompt?: string;
 }
 
+function extractUserMessage(prompt: string): string {
+  const senderBlockEnd = prompt.indexOf("\n```\n", prompt.indexOf("```json"));
+  if (senderBlockEnd !== -1) {
+    return prompt.slice(senderBlockEnd + 5).trim();
+  }
+
+  const lastNewlineBlock = prompt.lastIndexOf("\n\n");
+  if (lastNewlineBlock !== -1 && prompt.startsWith("Sender")) {
+    return prompt.slice(lastNewlineBlock).trim();
+  }
+
+  return prompt;
+}
+
 export function parseRoutePrefix(prompt: string): { className: string; stripped: string } | null {
   const config = loadRoutingConfig();
-  const trimmed = prompt.trimStart();
-  const lower = trimmed.toLowerCase();
+  const userMsg = extractUserMessage(prompt);
+  const lower = userMsg.toLowerCase();
 
   for (const [command, className] of Object.entries(config.commands)) {
     if (lower.startsWith(command + " ") || lower === command) {
-      const stripped = trimmed.slice(command.length).trim();
-      return { className, stripped: stripped || trimmed };
+      const stripped = userMsg.slice(command.length).trim();
+      return { className, stripped: stripped || userMsg };
     }
   }
   return null;
@@ -116,6 +130,9 @@ export class SmartRouterBridge {
   ): Promise<ResolveResult | null> {
     if (!this.config.enabled) return null;
 
+    const userMsg = extractUserMessage(prompt);
+    this.logger?.info?.(`smart-router: resolving prompt (user msg): "${userMsg.substring(0, 120)}"`);
+
     const prefixMatch = parseRoutePrefix(prompt);
     if (prefixMatch) {
       return this.resolveByClass(prefixMatch.className, prefixMatch.stripped, hookContext);
@@ -136,10 +153,10 @@ export class SmartRouterBridge {
     if (!this.router || !this.registry) return null;
 
     try {
-      const routingContext = this.buildRoutingContext(prompt, hookContext);
+      const routingContext = this.buildRoutingContext(userMsg, hookContext);
 
       const decision = await Promise.race([
-        this.router.route(prompt, routingContext),
+        this.router.route(userMsg, routingContext),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("route timeout")), this.config.routeTimeoutMs)
         ),
