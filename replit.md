@@ -46,7 +46,7 @@ src/
 │       ├── creative.json
 │       └── action.json
 ├── plugin/
-│   ├── index.ts                     # OpenClaw plugin entry (~55 lines, 2 hooks)
+│   ├── index.ts                     # OpenClaw plugin entry (commands + 3 hooks)
 │   ├── bridge.ts                    # SmartRouterBridge adapter (config-driven routing)
 │   └── openclaw.plugin.json         # Plugin manifest (id, configSchema, uiHints)
 ├── router/
@@ -78,19 +78,19 @@ docs/
 ## Routing Config (`src/config/routing.json`)
 This is the central config file. All routing decisions flow from it.
 
-### Commands → Classes
+### Commands
+Commands are registered with OpenClaw's command system for namespace protection and discoverability (appear in `/help`). Each command maps to a routing class and includes help text shown when the user types the bare command.
+
 ```json
 "commands": {
-  "/simple": "simple",
-  "/cheap": "simple",
-  "/coding": "coding",
-  "/creative": "creative",
-  "/action": "action",
-  "/reason": "reasoning",
-  "/best": "reasoning"
+  "/simple": { "class": "simple", "helpText": "..." },
+  "/cheap":  { "class": "simple", "helpText": "..." },
+  "/coding": { "class": "coding", "helpText": "..." },
+  ...
 }
 ```
-To add a new command: add one line mapping it to a class name.
+
+Bare `/best` → shows help text. `/best <message>` → routes message through the reasoning class to Gemini 2.5 Pro.
 
 ### Classes → Models
 ```json
@@ -105,25 +105,36 @@ To add a new command: add one line mapping it to a class name.
 To change which model handles a class: change the `model` field.
 To add a new class: add an entry with description, model, examples file, capabilities, outputScale. Drop a new examples JSON in `src/config/examples/`.
 
+## OpenClaw Plugin Integration
+The plugin uses a hybrid approach: OpenClaw's native command system for namespace protection + lifecycle hooks for routing.
+
+### Registered Commands (acceptsArgs: false)
+- `/simple`, `/cheap`, `/coding`, `/creative`, `/action`, `/reason`, `/best`
+- Bare command → returns help text describing the routing class
+- Command with args (e.g., `/best explain this`) → falls through to agent pipeline, picked up by hooks
+
+### Hooks (3 registered)
+- `message_received` — captures clean user text from channel messages (Telegram, Discord), stores routing intent
+- `before_model_resolve` — applies stored intent OR parses prompt text (TUI fallback), returns model override
+- `before_prompt_build` — injects model identity context + strips slash-command prefixes
+
+### Bridge (`src/plugin/bridge.ts`)
+- Lazy init with timeout protection
+- `setRouteIntent()` / `consumeRouteIntent()` — per-session state for cross-hook communication
+- `parseRoutePrefix()` — TUI fallback prompt parsing (extracts user message from OpenClaw's wrapped prompt format)
+- Config-driven class→model resolution via routing.json
+
+## Confidence Thresholds
+- LOW = 0.35 — below this, classification defaults to fallbackClass
+- If top classification confidence >= 0.35, the class's configured model is used
+- Frontier-tier models or long prompts (>2000 tokens) → "complex" complexity
+
 ## Dependencies
 - `openclaw` — AI agent framework
 - `@huggingface/transformers` — local embedding model (all-MiniLM-L6-v2)
 - `typescript`, `tsx` — TypeScript tooling
 - `zod` — schema validation
 - `tiktoken` — token counting (installed, not yet integrated)
-
-## OpenClaw Plugin Integration
-- Plugin registers two hooks:
-  - `before_model_resolve` — classifies prompt, looks up model from routing config
-  - `before_prompt_build` — injects model identity context + strips slash-command prefixes
-- Plugin entry: `src/plugin/index.ts`
-- Bridge: `src/plugin/bridge.ts` (lazy init, timeout protection, config-driven routing)
-- All routing intelligence stays in `src/router/`, `src/analyzers/`, `src/strategies/`
-
-## Confidence Thresholds
-- LOW = 0.35 — below this, classification defaults to fallbackClass
-- If top classification confidence >= 0.35, the class's configured model is used
-- Frontier-tier models or long prompts (>2000 tokens) → "complex" complexity
 
 ## OpenClaw Config
 - `.openclaw/` directory lives inside the project tree (not in `~/`)

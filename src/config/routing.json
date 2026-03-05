@@ -1,12 +1,33 @@
 {
   "commands": {
-    "/simple": "simple",
-    "/cheap": "simple",
-    "/coding": "coding",
-    "/creative": "creative",
-    "/action": "action",
-    "/reason": "reasoning",
-    "/best": "reasoning"
+    "/simple": {
+      "class": "simple",
+      "helpText": "Simple/Budget routing — Routes to Gemini 2.5 Flash for fast, cheap responses. Best for quick facts, casual chat, and follow-ups.\nUsage: /simple <your message>"
+    },
+    "/cheap": {
+      "class": "simple",
+      "helpText": "Budget routing — Alias for /simple. Routes to Gemini 2.5 Flash.\nUsage: /cheap <your message>"
+    },
+    "/coding": {
+      "class": "coding",
+      "helpText": "Code routing — Routes to Claude Sonnet 4.6 for writing code, debugging, refactoring, and code review.\nUsage: /coding <your message>"
+    },
+    "/creative": {
+      "class": "creative",
+      "helpText": "Creative routing — Routes to Claude Sonnet 4.6 for writing content, emails, blog posts, and translation.\nUsage: /creative <your message>"
+    },
+    "/action": {
+      "class": "action",
+      "helpText": "Action routing — Routes to Claude Sonnet 4.6 for tool calls, file operations, and system commands.\nUsage: /action <your message>"
+    },
+    "/reason": {
+      "class": "reasoning",
+      "helpText": "Reasoning routing — Routes to Gemini 2.5 Pro for deep analysis, architecture decisions, and complex reasoning.\nUsage: /reason <your message>"
+    },
+    "/best": {
+      "class": "reasoning",
+      "helpText": "Best model routing — Alias for /reason. Routes to Gemini 2.5 Pro, the frontier reasoning model.\nUsage: /best <your message>"
+    }
   },
 
   "classes": {

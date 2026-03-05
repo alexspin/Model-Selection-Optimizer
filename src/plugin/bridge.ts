@@ -40,6 +40,14 @@ export interface ResolveResult {
   strippedPrompt?: string;
 }
 
+interface RouteIntent {
+  className: string;
+  strippedPrompt: string;
+  timestamp: number;
+}
+
+const INTENT_TTL_MS = 30_000;
+
 function stripTimestampPrefix(text: string): string {
   return text.replace(/^\[.*?\]\s*/, "");
 }
@@ -67,10 +75,10 @@ export function parseRoutePrefix(prompt: string): { className: string; stripped:
   const userMsg = extractUserMessage(prompt);
   const lower = userMsg.toLowerCase();
 
-  for (const [command, className] of Object.entries(config.commands)) {
+  for (const [command, cmdConfig] of Object.entries(config.commands)) {
     if (lower.startsWith(command + " ") || lower === command) {
       const stripped = userMsg.slice(command.length).trim();
-      return { className, stripped: stripped || userMsg };
+      return { className: cmdConfig.class, stripped: stripped || userMsg };
     }
   }
   return null;
@@ -83,11 +91,52 @@ export class SmartRouterBridge {
   private initPromise: Promise<void> | null = null;
   private initialized = false;
   private initFailed = false;
+  private routeIntents = new Map<string, RouteIntent>();
 
   constructor(
     private config: SmartRouterPluginConfig = DEFAULT_PLUGIN_CONFIG,
     private logger?: BridgeLogger
   ) {}
+
+  setRouteIntent(key: string, className: string, strippedPrompt: string): void {
+    this.purgeStaleIntents();
+    this.routeIntents.set(key, {
+      className,
+      strippedPrompt,
+      timestamp: Date.now(),
+    });
+  }
+
+  consumeRouteIntent(sessionKey: string): RouteIntent | null {
+    const intent = this.routeIntents.get(sessionKey);
+    if (intent) {
+      this.routeIntents.delete(sessionKey);
+      if (Date.now() - intent.timestamp > INTENT_TTL_MS) return null;
+      return intent;
+    }
+
+    const now = Date.now();
+    for (const [key, candidate] of this.routeIntents) {
+      if (now - candidate.timestamp > INTENT_TTL_MS) {
+        this.routeIntents.delete(key);
+        continue;
+      }
+      if (sessionKey.includes(key) || key.includes(sessionKey)) {
+        this.routeIntents.delete(key);
+        return candidate;
+      }
+    }
+    return null;
+  }
+
+  private purgeStaleIntents(): void {
+    const now = Date.now();
+    for (const [key, intent] of this.routeIntents) {
+      if (now - intent.timestamp > INTENT_TTL_MS) {
+        this.routeIntents.delete(key);
+      }
+    }
+  }
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
@@ -138,8 +187,16 @@ export class SmartRouterBridge {
   ): Promise<ResolveResult | null> {
     if (!this.config.enabled) return null;
 
+    const sessionKey = hookContext?.sessionKey ?? hookContext?.sessionId ?? "unknown";
+
+    const storedIntent = this.consumeRouteIntent(sessionKey);
+    if (storedIntent) {
+      this.logger?.info?.(`smart-router: found stored intent class=${storedIntent.className} for session=${sessionKey}`);
+      return this.resolveByClass(storedIntent.className, storedIntent.strippedPrompt, hookContext);
+    }
+
     const userMsg = extractUserMessage(prompt);
-    this.logger?.info?.(`smart-router: resolving prompt (user msg): "${userMsg.substring(0, 120)}"`);
+    this.logger?.info?.(`smart-router: resolving prompt: "${userMsg.substring(0, 120)}"`);
 
     const prefixMatch = parseRoutePrefix(prompt);
     if (prefixMatch) {
@@ -226,7 +283,7 @@ export class SmartRouterBridge {
     return match ? match[1] : null;
   }
 
-  private async resolveByClass(
+  async resolveByClass(
     className: string,
     strippedPrompt: string,
     hookContext?: { agentId?: string; sessionKey?: string; sessionId?: string; channelId?: string }

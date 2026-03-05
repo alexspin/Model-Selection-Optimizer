@@ -28,10 +28,11 @@ export {
   loadRoutingConfig,
   getModelForClass,
   getClassForCommand,
+  getHelpForCommand,
   getFallbackModel,
   getFallbackClass,
 } from "./config/routing-config.js";
-export type { RoutingConfig, ClassConfig } from "./config/routing-config.js";
+export type { RoutingConfig, ClassConfig, CommandConfig } from "./config/routing-config.js";
 export type {
   ModelProfile,
   ModelCapability,

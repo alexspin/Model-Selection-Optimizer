@@ -10,21 +10,26 @@ export interface ClassConfig {
   outputScale: "short" | "medium" | "long";
 }
 
+export interface CommandConfig {
+  class: string;
+  helpText: string;
+}
+
 export interface RoutingConfig {
-  commands: Record<string, string>;
+  commands: Record<string, CommandConfig>;
   classes: Record<string, ClassConfig>;
   fallbackClass: string;
 }
 
 const BUILTIN_CONFIG: RoutingConfig = {
   commands: {
-    "/simple": "simple",
-    "/cheap": "simple",
-    "/coding": "coding",
-    "/creative": "creative",
-    "/action": "action",
-    "/reason": "reasoning",
-    "/best": "reasoning",
+    "/simple": { class: "simple", helpText: "Simple/Budget routing — Routes to budget model.\nUsage: /simple <your message>" },
+    "/cheap": { class: "simple", helpText: "Budget routing — Alias for /simple.\nUsage: /cheap <your message>" },
+    "/coding": { class: "coding", helpText: "Code routing — Routes to coding-optimized model.\nUsage: /coding <your message>" },
+    "/creative": { class: "creative", helpText: "Creative routing — Routes to creative writing model.\nUsage: /creative <your message>" },
+    "/action": { class: "action", helpText: "Action routing — Routes to tool-calling model.\nUsage: /action <your message>" },
+    "/reason": { class: "reasoning", helpText: "Reasoning routing — Routes to frontier reasoning model.\nUsage: /reason <your message>" },
+    "/best": { class: "reasoning", helpText: "Best model routing — Alias for /reason.\nUsage: /best <your message>" },
   },
   classes: {
     simple: {
@@ -99,7 +104,12 @@ export function getModelForClass(className: string): string | null {
 
 export function getClassForCommand(command: string): string | null {
   const config = loadRoutingConfig();
-  return config.commands[command] ?? null;
+  return config.commands[command]?.class ?? null;
+}
+
+export function getHelpForCommand(command: string): string | null {
+  const config = loadRoutingConfig();
+  return config.commands[command]?.helpText ?? null;
 }
 
 export function getFallbackModel(): string {
