@@ -13,12 +13,25 @@ export default function register(api: OpenClawPluginApi) {
 
   const bridge = new SmartRouterBridge(config, api.logger);
 
+  let lastRoutedModel: string | null = null;
+
   api.on("before_model_resolve", async (event, ctx) => {
     const result = await bridge.resolveModel(event.prompt, ctx);
-    if (!result) return;
+    if (!result) {
+      lastRoutedModel = null;
+      return;
+    }
+    lastRoutedModel = result.decision.selectedModel.displayName;
     return {
       modelOverride: result.modelOverride,
       providerOverride: result.providerOverride,
+    };
+  });
+
+  api.on("before_prompt_build", async () => {
+    if (!lastRoutedModel) return;
+    return {
+      prependContext: `[Smart Router] This turn is being handled by ${lastRoutedModel}. If asked what model you are, report "${lastRoutedModel}" — that is your true identity for this turn.`,
     };
   });
 
