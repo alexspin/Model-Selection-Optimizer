@@ -7,89 +7,6 @@ function estimateTokenCount(text: string): number {
 
 const DEFAULT_CONFIDENCE_THRESHOLD = 0.35;
 
-function capabilitiesFromClassifications(
-  results: ClassificationResult[],
-  threshold: number = DEFAULT_CONFIDENCE_THRESHOLD
-): ModelCapability[] {
-  const capabilities: Set<ModelCapability> = new Set();
-  capabilities.add("text-generation");
-  for (const result of results) {
-    if (result.confidence >= threshold) {
-      for (const cap of result.definition.requiredCapabilities) {
-        capabilities.add(cap);
-      }
-    }
-  }
-  return Array.from(capabilities);
-}
-
-function complexityFromClassifications(
-  results: ClassificationResult[],
-  tokenCount: number,
-  threshold: number = DEFAULT_CONFIDENCE_THRESHOLD
-): "simple" | "moderate" | "complex" {
-  if (results.length === 0) return "simple";
-
-  const topResult = results[0];
-  const topConfidence = topResult.confidence;
-  const tier = topResult.definition.suggestedTier;
-
-  if (topConfidence < threshold) return "simple";
-
-  if (tier === "frontier" || tokenCount > 2000) return "complex";
-  if (tier === "budget" || tier === "local") return "simple";
-
-  if (tier === "mid") return "moderate";
-
-  if (tokenCount > 500) return "moderate";
-
-  return "moderate";
-}
-
-function outputEstimateFromClassifications(
-  results: ClassificationResult[],
-  complexity: "simple" | "moderate" | "complex"
-): number {
-  if (results.length === 0) {
-    return complexity === "complex" ? 2000 : complexity === "moderate" ? 800 : 200;
-  }
-
-  const scale = results[0].definition.expectedOutputScale;
-  switch (scale) {
-    case "short": return 200;
-    case "medium": return 800;
-    case "long": return 2000;
-  }
-}
-
-export function analyzePromptWithClassifications(
-  prompt: string,
-  classificationResults: ClassificationResult[],
-  conversationHistory: ConversationTurn[] = [],
-  confidenceThreshold: number = DEFAULT_CONFIDENCE_THRESHOLD
-): PromptAnalysis {
-  const capabilities = capabilitiesFromClassifications(classificationResults, confidenceThreshold);
-  const totalContextTokens = conversationHistory.reduce(
-    (sum, turn) => sum + estimateTokenCount(turn.content), 0
-  );
-  const estimatedInputTokens = estimateTokenCount(prompt) + totalContextTokens;
-  const complexity = complexityFromClassifications(classificationResults, estimatedInputTokens, confidenceThreshold);
-  const estimatedOutputTokens = outputEstimateFromClassifications(classificationResults, complexity);
-
-  return {
-    estimatedInputTokens,
-    estimatedOutputTokens,
-    detectedCapabilities: capabilities,
-    complexity,
-    requiresReasoning: capabilities.includes("reasoning"),
-    requiresCodeGen: capabilities.includes("code-generation"),
-    requiresLongContext: estimatedInputTokens > 50000,
-    requiresVision: capabilities.includes("vision"),
-    conversationDepth: conversationHistory.length,
-    rawPrompt: prompt,
-  };
-}
-
 const CODE_INDICATORS = [
   /\b(function|class|const|let|var|import|export|return|async|await)\b/,
   /\b(def |class |import |from |print\(|self\.)\b/,
@@ -132,6 +49,107 @@ function detectCapabilities(text: string): ModelCapability[] {
   if (VISION_INDICATORS.some((r) => r.test(text))) capabilities.add("vision");
 
   return Array.from(capabilities);
+}
+
+function capabilitiesFromClassifications(
+  results: ClassificationResult[],
+  threshold: number = DEFAULT_CONFIDENCE_THRESHOLD
+): ModelCapability[] {
+  const capabilities: Set<ModelCapability> = new Set();
+  capabilities.add("text-generation");
+  for (const result of results) {
+    if (result.confidence >= threshold) {
+      for (const cap of result.definition.requiredCapabilities) {
+        capabilities.add(cap);
+      }
+    }
+  }
+  return Array.from(capabilities);
+}
+
+function complexityFromClassifications(
+  results: ClassificationResult[],
+  tokenCount: number,
+  threshold: number = DEFAULT_CONFIDENCE_THRESHOLD,
+  rawPrompt?: string
+): "simple" | "moderate" | "complex" {
+  if (results.length > 0) {
+    const topResult = results[0];
+    const topConfidence = topResult.confidence;
+    const tier = topResult.definition.suggestedTier;
+
+    if (topConfidence >= threshold) {
+      if (tier === "frontier" || tokenCount > 2000) return "complex";
+      if (tier === "budget" || tier === "local") return "simple";
+      if (tier === "mid") return "moderate";
+      if (tokenCount > 500) return "moderate";
+      return "moderate";
+    }
+  }
+
+  if (rawPrompt) {
+    const caps = detectCapabilities(rawPrompt);
+    const nonTrivialCaps = caps.filter((c) => c !== "text-generation");
+    if (nonTrivialCaps.length >= 2) return "moderate";
+    if (nonTrivialCaps.length === 1) {
+      if (nonTrivialCaps[0] === "code-generation" || nonTrivialCaps[0] === "reasoning") {
+        return "moderate";
+      }
+    }
+    if (tokenCount > 500) return "moderate";
+  }
+
+  return "simple";
+}
+
+function outputEstimateFromClassifications(
+  results: ClassificationResult[],
+  complexity: "simple" | "moderate" | "complex"
+): number {
+  if (results.length === 0) {
+    return complexity === "complex" ? 2000 : complexity === "moderate" ? 800 : 200;
+  }
+
+  const scale = results[0].definition.expectedOutputScale;
+  switch (scale) {
+    case "short": return 200;
+    case "medium": return 800;
+    case "long": return 2000;
+  }
+}
+
+export function analyzePromptWithClassifications(
+  prompt: string,
+  classificationResults: ClassificationResult[],
+  conversationHistory: ConversationTurn[] = [],
+  confidenceThreshold: number = DEFAULT_CONFIDENCE_THRESHOLD
+): PromptAnalysis {
+  let capabilities = capabilitiesFromClassifications(classificationResults, confidenceThreshold);
+  const hasConfidentResult = classificationResults.some((r) => r.confidence >= confidenceThreshold);
+  if (!hasConfidentResult) {
+    const regexCaps = detectCapabilities(prompt);
+    const merged = new Set([...capabilities, ...regexCaps]);
+    capabilities = Array.from(merged);
+  }
+  const totalContextTokens = conversationHistory.reduce(
+    (sum, turn) => sum + estimateTokenCount(turn.content), 0
+  );
+  const estimatedInputTokens = estimateTokenCount(prompt) + totalContextTokens;
+  const complexity = complexityFromClassifications(classificationResults, estimatedInputTokens, confidenceThreshold, prompt);
+  const estimatedOutputTokens = outputEstimateFromClassifications(classificationResults, complexity);
+
+  return {
+    estimatedInputTokens,
+    estimatedOutputTokens,
+    detectedCapabilities: capabilities,
+    complexity,
+    requiresReasoning: capabilities.includes("reasoning"),
+    requiresCodeGen: capabilities.includes("code-generation"),
+    requiresLongContext: estimatedInputTokens > 50000,
+    requiresVision: capabilities.includes("vision"),
+    conversationDepth: conversationHistory.length,
+    rawPrompt: prompt,
+  };
 }
 
 function assessComplexity(text: string, capabilities: ModelCapability[]): "simple" | "moderate" | "complex" {
