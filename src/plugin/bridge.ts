@@ -40,18 +40,26 @@ export interface ResolveResult {
   strippedPrompt?: string;
 }
 
+function stripTimestampPrefix(text: string): string {
+  return text.replace(/^\[.*?\]\s*/, "");
+}
+
 function extractUserMessage(prompt: string): string {
+  let msg = prompt;
+
   const senderBlockEnd = prompt.indexOf("\n```\n", prompt.indexOf("```json"));
   if (senderBlockEnd !== -1) {
-    return prompt.slice(senderBlockEnd + 5).trim();
+    msg = prompt.slice(senderBlockEnd + 5).trim();
+  } else {
+    const lastNewlineBlock = prompt.lastIndexOf("\n\n");
+    if (lastNewlineBlock !== -1 && prompt.startsWith("Sender")) {
+      msg = prompt.slice(lastNewlineBlock).trim();
+    }
   }
 
-  const lastNewlineBlock = prompt.lastIndexOf("\n\n");
-  if (lastNewlineBlock !== -1 && prompt.startsWith("Sender")) {
-    return prompt.slice(lastNewlineBlock).trim();
-  }
+  msg = stripTimestampPrefix(msg);
 
-  return prompt;
+  return msg;
 }
 
 export function parseRoutePrefix(prompt: string): { className: string; stripped: string } | null {
