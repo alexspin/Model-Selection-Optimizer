@@ -101,6 +101,7 @@ All options can be set in `.openclaw/openclaw.json` under `plugins.entries.smart
 | `enabled` | boolean | `true` | Enable/disable the router |
 | `logDecisions` | boolean | `true` | Log which model was selected and why |
 | `fallbackModel` | string | `anthropic/claude-sonnet-4-6` | Model to use if routing fails |
+| `classificationThreshold` | number | `0.35` | Confidence cutoff (0.1-0.9) for direct class→model routing. Below this, the scoring pipeline runs instead |
 | `initTimeoutMs` | number | `30000` | Max time to load the embedding model |
 | `routeTimeoutMs` | number | `5000` | Max time per routing decision |
 | `strategyWeights` | object | — | Override scoring weights (see below) |

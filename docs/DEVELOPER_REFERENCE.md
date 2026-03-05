@@ -3,22 +3,23 @@
 ## Table of Contents
 
 1. [Architecture Overview](#architecture-overview)
-2. [Routing Pipeline](#routing-pipeline)
-3. [Semantic Classifier](#semantic-classifier)
-4. [Classification Categories](#classification-categories)
-5. [Scoring Strategies](#scoring-strategies)
-6. [Model Registry](#model-registry)
-7. [Router Configuration](#router-configuration)
-8. [API Reference](#api-reference)
-9. [Extending the System](#extending-the-system)
-10. [What Is Real vs Stub](#what-is-real-vs-stub)
-11. [OpenClaw Integration Points](#openclaw-integration-points)
+2. [Semantic Classifier](#semantic-classifier)
+3. [Classification Categories](#classification-categories)
+4. [Scoring Strategies](#scoring-strategies)
+5. [Model Registry](#model-registry)
+6. [Router Configuration](#router-configuration)
+7. [API Reference](#api-reference)
+8. [Extending the System](#extending-the-system)
+9. [What Is Real vs Stub](#what-is-real-vs-stub)
+10. [OpenClaw Integration Points](#openclaw-integration-points)
 
 ---
 
 ## Architecture Overview
 
-The smart router sits between the user prompt and OpenClaw's model providers. Each conversation turn goes through a pipeline that analyzes the prompt, classifies it semantically, scores all available models, and selects the best one.
+The smart router sits between the user prompt and OpenClaw's model providers. Each conversation turn goes through a pipeline that classifies the prompt and decides which model should handle it. There are two paths depending on classifier confidence.
+
+### Decision Flow
 
 ```
 User Prompt
@@ -30,44 +31,72 @@ User Prompt
 │                           │  Returns: top-K categories with confidence scores
 └────────────┬─────────────┘
              │ ClassificationResult[]
+             │ (each has: name, confidence, definition)
              ▼
-┌──────────────────────────┐
-│  Prompt Analyzer          │  Converts classifications into PromptAnalysis:
-│                           │  - Required capabilities
-│                           │  - Complexity (simple/moderate/complex)
-│                           │  - Token estimates
-│                           │  - Output scale expectations
-└────────────┬─────────────┘
-             │ PromptAnalysis
-             ▼
-┌──────────────────────────┐
-│  Candidate Filter         │  Removes models that can't handle the request:
-│                           │  - Vision required but not supported
-│                           │  - Context window too small
-│                           │  - Blocked by user preferences
-│                           │  - Provider/tier preferences
-└────────────┬─────────────┘
-             │ ModelProfile[]
-             ▼
-┌──────────────────────────┐
-│  Scoring Engine           │  5 weighted strategies each score every model 0-1:
-│                           │  - capability-match (35%)
-│                           │  - complexity-tier-match (25%)
-│                           │  - cost-optimization (20%)
-│                           │  - latency-optimization (10%)
-│                           │  - context-window-fit (10%)
-│                           │  Scores combined by weight, models ranked
-└────────────┬─────────────┘
-             │ ScoredModel[]
-             ▼
-┌──────────────────────────┐
-│  Selection & Logging      │  Picks highest score, builds RoutingDecision
-│                           │  with reason, alternatives, cost estimate
-│                           │  Records in CostTracker
-└──────────────────────────┘
+     ┌───────────────┐
+     │ Confidence >=  │
+     │  threshold?    │  (default 0.35, configurable via classificationThreshold)
+     └───┬───────┬───┘
+     YES │       │ NO
+         ▼       ▼
+┌─────────────┐  ┌──────────────────────────┐
+│ Fast Path   │  │  Prompt Analyzer          │  Converts partial classifications
+│             │  │                           │  into PromptAnalysis:
+│ Look up the │  │  - Required capabilities  │  (from results above threshold)
+│ class in    │  │  - Complexity assessment  │  (from top result's tier)
+│ routing.json│  │  - Token estimates        │  (input: chars/3.5, output: by scale)
+│ → get model │  │  - Output scale           │  (short/medium/long from definition)
+│             │  └────────────┬──────────────┘
+│ Done.       │               │ PromptAnalysis
+└─────────────┘               ▼
+                 ┌──────────────────────────┐
+                 │  Candidate Filter         │  Removes models that can't handle it:
+                 │                           │  - Vision required but not supported
+                 │                           │  - Context window too small
+                 │                           │  - Blocked by user preferences
+                 │                           │  - Provider/tier preferences
+                 └────────────┬─────────────┘
+                              │ ModelProfile[]
+                              ▼
+                 ┌──────────────────────────┐
+                 │  Scoring Engine           │  5 weighted strategies score each
+                 │                           │  model 0-1:
+                 │                           │  - capability-match (35%)
+                 │                           │  - complexity-tier-match (25%)
+                 │                           │  - cost-optimization (20%)
+                 │                           │  - latency-optimization (10%)
+                 │                           │  - context-window-fit (10%)
+                 │                           │  Scores combined, models ranked
+                 └────────────┬─────────────┘
+                              │ ScoredModel[]
+                              ▼
+                 ┌──────────────────────────┐
+                 │  Selection & Logging      │  Picks highest score, builds
+                 │                           │  RoutingDecision with reason,
+                 │                           │  alternatives, cost estimate
+                 └──────────────────────────┘
 ```
 
-If the semantic classifier is not attached, the router falls back to regex-based heuristic analysis (the original Layer 1). Both paths produce the same `PromptAnalysis` type.
+**Fast path (confident classification):** The classifier returns a category (e.g., "coding") with confidence >= threshold. The bridge looks up that class in `routing.json`, finds the mapped model (e.g., `anthropic/claude-sonnet-4-6`), and overrides the scorer's result with the config-mapped model. The scoring engine still runs internally (the router doesn't short-circuit), but its result is replaced by the config mapping in the bridge layer.
+
+**Scoring path (uncertain classification):** All top results are below the threshold. The prompt analyzer extracts what it can from the partial results (capabilities, complexity, token estimates), then the scoring engine evaluates every enabled model across 5 strategies and picks the highest-scoring one. The bridge uses the scorer's pick directly.
+
+**Regex fallback:** If the semantic classifier is not attached (failed to load, timed out), the router falls back to regex-based heuristic analysis that pattern-matches keywords. Both paths produce the same `PromptAnalysis` type.
+
+### Prompt Analyzer
+
+**File:** `src/analyzers/prompt-analyzer.ts`
+
+The prompt analyzer converts classification results into a `PromptAnalysis` that the scoring engine can work with. It pulls data from each `ClassificationResult`'s `definition` field:
+
+| What it produces | Where the data comes from |
+|---|---|
+| Required capabilities | `definition.requiredCapabilities` from each result above threshold |
+| Complexity (simple/moderate/complex) | Top result's `definition.suggestedTier`: frontier→complex, mid→moderate, budget→simple. Falls back to "simple" if below threshold. Prompts >2000 tokens always "complex" |
+| Estimated input tokens | `prompt.length / 3.5` + conversation history tokens |
+| Estimated output tokens | Top result's `definition.expectedOutputScale`: short→200, medium→800, long→2000 tokens |
+
+The regex fallback path (`analyzePrompt()`) uses keyword pattern matching instead of classification results — it scans for code keywords, reasoning phrases, creative writing terms, action verbs, and vision references to build the same capability list.
 
 ---
 
@@ -326,17 +355,20 @@ const config = createRouterConfig({
     { name: "context-window-fit", weight: 0.10, enabled: true, params: {} },
   ],
   fallbackModel: "anthropic/claude-sonnet-4-6",
-  enableMetaRouting: false,        // set true for LLM-based routing (STUB)
+  classificationThreshold: 0.35,   // confidence cutoff for direct class→model routing
+  enableMetaRouting: false,         // set true for LLM-based routing (STUB)
   metaRoutingModel: "openai/gpt-4o-mini",
   budgetDefaults: {
-    maxCostPerTurn: 0.50,          // max $ per single turn
-    maxCostPerSession: 5.00,       // max $ per conversation session
+    maxCostPerTurn: 0.50,           // max $ per single turn
+    maxCostPerSession: 5.00,        // max $ per conversation session
     currentSessionCost: 0,
     preferCheaper: false,
   },
   logging: true,
 });
 ```
+
+The `classificationThreshold` controls the boundary between the fast path (direct class→model lookup) and the scoring path (full multi-strategy evaluation). See [Architecture Overview](#architecture-overview) for details.
 
 ---
 
@@ -595,6 +627,7 @@ Add to `.openclaw/openclaw.json`:
           "fallbackModel": "anthropic/claude-sonnet-4-6",
           "routeTimeoutMs": 5000,
           "initTimeoutMs": 30000,
+          "classificationThreshold": 0.35,
           "strategyWeights": {
             "capability-match": 0.35,
             "complexity-tier-match": 0.25,

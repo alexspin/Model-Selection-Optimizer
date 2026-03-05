@@ -1,7 +1,7 @@
 # OpenClaw Smart Model Router
 
 ## Overview
-A TypeScript extension module for OpenClaw (v2026.3.2) that dynamically selects the best AI model (cloud or local) for each conversation turn. Uses a local embedding model to semantically classify prompts, then scores all available models through a weighted multi-strategy engine.
+A TypeScript extension module for OpenClaw (v2026.3.2) that dynamically selects the best AI model (cloud or local) for each conversation turn. Uses a local embedding model to semantically classify prompts, then either maps directly to a configured model (fast path, when confidence >= threshold) or scores all available models through a weighted multi-strategy engine (scoring path, when uncertain).
 
 ## Getting Started
 
@@ -71,8 +71,14 @@ src/
     ├── IDENTITY.md                  # Model identity instructions
     └── SOUL.md                      # Agent personality
 
+scripts/
+└── copy-assets.js                   # Build helper: copies JSON/manifest to dist/
+
 docs/
 └── DEVELOPER_REFERENCE.md           # Full architecture + API reference
+
+setup.sh                             # Install script for manual/drop-in deployment
+INSTALL.md                           # Installation guide (npm, manual, dev-mode)
 ```
 
 ## Routing Config (`src/config/routing.json`)
@@ -123,12 +129,26 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
 - `setRouteIntent()` / `consumeRouteIntent()` — per-session state for cross-hook communication
 - `parseRoutePrefix()` — TUI fallback prompt parsing (extracts user message from OpenClaw's wrapped prompt format)
 - Config-driven class→model resolution via routing.json
+- Per-session routing state (keyed by `ctx.sessionKey`) to prevent cross-session leaks
 
-## Confidence Thresholds
-- Default threshold = 0.35 (configurable via `classificationThreshold` in plugin config)
-- If top classification confidence >= threshold, the class's configured model is used directly
-- If below threshold, the full scoring pipeline runs (5 weighted strategies)
-- Frontier-tier models or long prompts (>2000 tokens) → "complex" complexity
+## Routing Decision Pipeline
+Two paths based on classifier confidence:
+1. **Fast path** (confidence >= `classificationThreshold`): Bridge looks up class in routing.json → overrides scorer's result with config-mapped model
+2. **Scoring path** (below threshold): Prompt analyzer builds a profile → 5 strategies score every model → highest score wins
+Note: the scoring engine runs in both cases (the router doesn't short-circuit), but on the fast path the bridge replaces the scorer's pick with the config mapping.
+
+### Prompt Analyzer
+When the scoring path runs, the analyzer extracts from classification results:
+- **Required capabilities**: from `definition.requiredCapabilities` of each result above threshold
+- **Complexity**: from top result's `definition.suggestedTier` (frontier→complex, mid→moderate, budget→simple). Prompts >2000 tokens always "complex"
+- **Input tokens**: `prompt.length / 3.5` + conversation history
+- **Output tokens**: from top result's `definition.expectedOutputScale` (short=200, medium=800, long=2000)
+- If classifier is unavailable entirely, falls back to regex keyword matching for capabilities
+
+### Configurable Threshold
+- Default = 0.35, configurable via `classificationThreshold` in plugin config (range 0.1–0.9)
+- Lower → more prompts take the fast path (faster, but less nuanced)
+- Higher → more prompts go through full scoring (slower, but considers cost/latency/capabilities)
 
 ## Packaging & Distribution
 - **npm install**: `package.json` has `"openclaw": { "extensions": ["dist/plugin/index.js"] }` for auto-discovery
