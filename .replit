@@ -43,3 +43,8 @@ args = "npx tsx src/start-gateway.ts"
 [[ports]]
 localPort = 18789
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+OPENCLAW_HOME = "/home/runner/workspace"

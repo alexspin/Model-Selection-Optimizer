@@ -1,50 +1,25 @@
 import { spawn } from "child_process";
-import { existsSync, readFileSync, mkdirSync, copyFileSync } from "fs";
-import { homedir } from "os";
+import { existsSync, readFileSync } from "fs";
 import { join, dirname } from "path";
 import { fileURLToPath } from "url";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const CONFIG_PATH = join(homedir(), ".openclaw", "openclaw.json");
-const DEFAULT_PORT = 18789;
 const PROJECT_ROOT = join(__dirname, "..");
-const PROJECT_CONFIG_DIR = join(PROJECT_ROOT, "config");
+const DEFAULT_PORT = 18789;
 
-function ensureConfig(): void {
-  if (!existsSync(PROJECT_CONFIG_DIR)) {
-    console.warn(`Config template dir not found: ${PROJECT_CONFIG_DIR}`);
-    return;
-  }
+function getOpenclawHome(): string {
+  return process.env.OPENCLAW_HOME || process.env.HOME || "/home/runner";
+}
 
-  const openclawDir = join(homedir(), ".openclaw");
-  const workspaceDir = join(openclawDir, "workspace");
-  const agentDir = join(openclawDir, "agents", "main", "agent");
-
-  const copies: [string, string][] = [
-    [join(PROJECT_CONFIG_DIR, "openclaw", "openclaw.json"), join(openclawDir, "openclaw.json")],
-    [join(PROJECT_CONFIG_DIR, "agent", "auth-profiles.json"), join(agentDir, "auth-profiles.json")],
-    [join(PROJECT_CONFIG_DIR, "workspace", "IDENTITY.md"), join(workspaceDir, "IDENTITY.md")],
-    [join(PROJECT_CONFIG_DIR, "workspace", "SOUL.md"), join(workspaceDir, "SOUL.md")],
-  ];
-
-  for (const [src, dest] of copies) {
-    if (!existsSync(src)) {
-      console.warn(`Config template missing: ${src}`);
-      continue;
-    }
-    if (!existsSync(dest)) {
-      mkdirSync(dirname(dest), { recursive: true });
-      copyFileSync(src, dest);
-      console.log(`Installed config: ${dest}`);
-    }
-  }
+function getConfigPath(): string {
+  return join(getOpenclawHome(), ".openclaw", "openclaw.json");
 }
 
 function getPort(): number {
   try {
-    const config = JSON.parse(readFileSync(CONFIG_PATH, "utf-8"));
+    const config = JSON.parse(readFileSync(getConfigPath(), "utf-8"));
     return config.gateway?.port || DEFAULT_PORT;
   } catch {
     return DEFAULT_PORT;
@@ -52,10 +27,15 @@ function getPort(): number {
 }
 
 function startGateway(): void {
-  ensureConfig();
+  if (!process.env.OPENCLAW_HOME) {
+    process.env.OPENCLAW_HOME = PROJECT_ROOT;
+    console.log(`OPENCLAW_HOME not set, using project root: ${PROJECT_ROOT}`);
+  }
 
-  if (!existsSync(CONFIG_PATH)) {
-    console.error("OpenClaw config not found. Run: npm run install-config");
+  const configPath = getConfigPath();
+  if (!existsSync(configPath)) {
+    console.error(`OpenClaw config not found at ${configPath}`);
+    console.error(`Ensure .openclaw/openclaw.json exists in your project.`);
     process.exit(1);
   }
 
@@ -74,6 +54,8 @@ function startGateway(): void {
 
   const port = getPort();
   console.log(`Starting OpenClaw gateway on port ${port}...`);
+  console.log(`OPENCLAW_HOME=${process.env.OPENCLAW_HOME}`);
+  console.log(`Config: ${configPath}`);
 
   const gateway = spawn("npx", ["openclaw", "gateway", "run", "--port", String(port), "--verbose"], {
     stdio: "inherit",

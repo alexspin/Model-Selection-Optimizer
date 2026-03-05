@@ -12,7 +12,7 @@ A TypeScript extension module for OpenClaw (v2026.3.2) that dynamically selects 
 ### Setup
 1. `npm run setup` — verify installation and API key status
 2. Set API keys as secrets: `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`
-3. `npm run gateway` — start the OpenClaw gateway (auto-installs config if missing)
+3. `npm run gateway` — start the OpenClaw gateway
 4. `npm run dev` — run the router demo with semantic classification
 
 ### Scripts
@@ -21,7 +21,6 @@ A TypeScript extension module for OpenClaw (v2026.3.2) that dynamically selects 
 - `npm run dev` — router demo with all 10 classification categories
 - `npm run build` — compile TypeScript to `dist/`
 - `npm run typecheck` — type check without emitting
-- `npm run install-config` — manually install config to `~/.openclaw/`
 
 ## Project Structure
 ```
@@ -29,7 +28,7 @@ src/
 ├── index.ts                         # Public API exports
 ├── demo.ts                          # Demo with semantic classification
 ├── setup.ts                         # OpenClaw health check
-├── start-gateway.ts                 # Gateway launcher (auto-installs config)
+├── start-gateway.ts                 # Gateway launcher
 ├── types/index.ts                   # All TypeScript interfaces + Zod schemas
 ├── models/registry.ts               # Model catalog (8 models, real pricing)
 ├── analyzers/
@@ -67,17 +66,13 @@ src/
 └── utils/
     └── cost-tracker.ts              # Cost tracking per session/model
 
-config/                              # OpenClaw config templates (source of truth)
-├── openclaw/
-│   └── openclaw.json                # Gateway config (providers, plugin, port)
-├── agent/
+.openclaw/                           # OpenClaw runtime config (IN PROJECT TREE)
+├── openclaw.json                    # Gateway config (providers, plugin, port)
+├── agents/main/agent/
 │   └── auth-profiles.json           # Provider auth (Google API key ref)
 └── workspace/
     ├── IDENTITY.md                  # Model identity instructions
     └── SOUL.md                      # Agent personality
-
-scripts/
-└── install-config.sh                # Manual config installer
 
 docs/
 └── DEVELOPER_REFERENCE.md           # Full architecture + API reference
@@ -96,14 +91,13 @@ docs/
   - `before_prompt_build` — injects model identity context so models self-identify correctly
 - Plugin entry: `src/plugin/index.ts` (thin wrapper, ~35 lines)
 - Bridge: `src/plugin/bridge.ts` (lazy init, timeout protection, graceful degradation)
-- Config templates: `config/` directory (committed to project, auto-installed on gateway start)
 - All routing intelligence stays in `src/router/`, `src/analyzers/`, `src/strategies/`
 
 ## OpenClaw Config
-- Source of truth: `config/` directory in project root
-- Runtime location: `~/.openclaw/` (auto-installed by gateway on startup if missing)
+- `.openclaw/` directory lives inside the project tree (not in `~/`)
+- `OPENCLAW_HOME` env var is set to the project root so OpenClaw finds `.openclaw/` here
 - Gateway: port 18789, auth: none
 - Default model: `anthropic/claude-sonnet-4-6`
 - Plugin: smart-router enabled via `plugins.entries.smart-router`
 - Google provider: Gemini 2.5 Pro + Flash configured via `models.providers.google`
-- Auth: `config/agent/auth-profiles.json` references `GOOGLE_API_KEY` env var
+- Auth: `.openclaw/agents/main/agent/auth-profiles.json` references `GOOGLE_API_KEY` env var

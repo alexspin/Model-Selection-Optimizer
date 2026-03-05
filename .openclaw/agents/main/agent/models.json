@@ -1,0 +1,47 @@
+{
+  "providers": {
+    "google": {
+      "baseUrl": "https://generativelanguage.googleapis.com/v1beta",
+      "apiKey": "AIzaSyDlmS9eVjrF_obbiGMEv93Hya_2afluBUA",
+      "api": "google-generative-ai",
+      "models": [
+        {
+          "id": "gemini-2.5-pro",
+          "name": "Gemini 2.5 Pro",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "cost": {
+            "input": 1.25,
+            "output": 10,
+            "cacheRead": 0.32,
+            "cacheWrite": 4.5
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 65536,
+          "api": "google-generative-ai"
+        },
+        {
+          "id": "gemini-2.5-flash",
+          "name": "Gemini 2.5 Flash",
+          "reasoning": true,
+          "input": [
+            "text",
+            "image"
+          ],
+          "cost": {
+            "input": 0.15,
+            "output": 0.6,
+            "cacheRead": 0.04,
+            "cacheWrite": 0.1
+          },
+          "contextWindow": 1000000,
+          "maxTokens": 65536,
+          "api": "google-generative-ai"
+        }
+      ]
+    }
+  }
+}
