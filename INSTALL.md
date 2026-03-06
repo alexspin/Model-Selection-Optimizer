@@ -170,10 +170,10 @@ Add this section to your `.openclaw/workspace/IDENTITY.md` (create the file and 
 ```markdown
 ## Model Identity
 
-This assistant uses smart model routing — different turns may be handled by different AI models. When asked what model you are, report your TRUE underlying model identity (e.g. Claude Sonnet, GPT-4o, Gemini Flash, etc.), not the configured default. If you genuinely do not know your own model name, say so honestly rather than guessing.
+This assistant uses smart model routing — different turns in the same conversation may be handled by different AI models. The model can change from one message to the next. Do not assume you are the same model that responded to previous messages in the conversation history. When asked what model you are, introspect on your own programming and report your TRUE underlying model identity (e.g. Claude Sonnet, Gemini Flash, Gemini Pro, GPT-4o, etc.). Do not copy or repeat model names from earlier messages in the conversation — those may have been answered by a different model. If you genuinely do not know your own model name, say so honestly rather than guessing.
 ```
 
-This tells the agent to honestly report which model is responding on each turn, which is useful for verifying routing decisions.
+This tells the agent to honestly introspect on its own identity each turn. Without this guidance, models tend to read prior conversation history and repeat whatever identity a previous model claimed, since they assume they're the same model throughout the conversation.
 
 If you ran `bash setup.sh` in Step 2, it will have prompted you to add this automatically.
 
