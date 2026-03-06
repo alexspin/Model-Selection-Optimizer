@@ -204,6 +204,96 @@ After installation, these commands are available in OpenClaw:
 
 Type a bare command (e.g., `/best`) to see help. Type with a message (e.g., `/best explain quantum computing`) to route that message.
 
+## Adding a new model
+
+To add a new model to the routing mix, you need to update two files in the plugin and make sure the model is available in your OpenClaw config.
+
+### Step 1: Add the model to the plugin's registry
+
+Open `src/models/registry.ts` and add a new entry to the `builtInModels` array. Here's an example adding GPT-4o-mini:
+
+```typescript
+{
+  id: "openai/gpt-4o-mini",
+  provider: "openai",
+  modelId: "gpt-4o-mini",
+  displayName: "GPT-4o Mini",
+  tier: "budget",                    // "budget", "mid", "frontier", or "local"
+  capabilities: [
+    "text-generation", "code-generation", "reasoning",
+    "summarization", "function-calling",
+  ],
+  contextWindow: 128000,
+  maxOutputTokens: 16384,
+  pricing: { inputPerMillionTokens: 0.15, outputPerMillionTokens: 0.60 },
+  averageLatencyMs: 500,
+  qualityScores: {
+    "text-generation": 0.80, "code-generation": 0.75, "reasoning": 0.70,
+    "summarization": 0.78, "translation": 0.75, "creative-writing": 0.72,
+    "data-analysis": 0.70, "function-calling": 0.78, "vision": 0.0, "long-context": 0.75,
+  },
+  isLocal: false,
+  enabled: true,
+},
+```
+
+Key fields explained:
+
+| Field | What it does |
+|-------|-------------|
+| `id` | Must be `provider/model-name` format. This is what the router uses to identify the model |
+| `provider` | Must match the provider name in your OpenClaw config (e.g., `openai`, `anthropic`, `google`) |
+| `modelId` | The actual model ID the API expects (e.g., `gpt-4o-mini`, `claude-sonnet-4-6`) |
+| `tier` | Controls complexity matching. `budget` models get picked for simple tasks, `frontier` for complex ones, `mid` for everything in between |
+| `capabilities` | What the model can do. The scoring engine matches these against what the prompt needs |
+| `qualityScores` | 0.0 to 1.0 rating for each capability. Higher scores make the model more likely to be picked for that type of task |
+| `pricing` | Cost per million tokens. The cost-optimization strategy uses this to prefer cheaper models when quality is similar |
+| `averageLatencyMs` | Typical response time. The latency strategy uses this |
+| `enabled` | Set to `false` to keep the model in the registry but exclude it from routing |
+
+### Step 2: Map the model to a class in routing config
+
+Open `src/config/routing.json` and change which model a class uses. For example, to make `/simple` and `/cheap` use GPT-4o-mini instead of Gemini Flash:
+
+```json
+"simple": {
+  "description": "Quick facts, follow-ups, casual chat, acknowledgments, short summaries",
+  "model": "openai/gpt-4o-mini",
+  "examples": "simple.json",
+  "capabilities": ["text-generation"],
+  "outputScale": "short"
+}
+```
+
+The `model` value must match the `id` you used in the registry.
+
+The `/simple` and `/cheap` commands both point to the `simple` class, so changing the model here updates both commands automatically.
+
+### Step 3: Make sure OpenClaw can call the model
+
+The plugin picks the model, but OpenClaw makes the actual API call. The model's provider needs to be configured in your `openclaw.json` with a valid API key.
+
+If OpenClaw's built-in catalog already knows the model (most OpenAI and Anthropic models), you just need the API key set:
+
+```bash
+export OPENAI_API_KEY="your-key-here"
+```
+
+If it's a custom or less common model, you may need to add the provider to your `openclaw.json` under `models.providers`, similar to how the Google provider is configured.
+
+### Step 4: Rebuild and restart
+
+```bash
+npm run build
+```
+
+Then restart your OpenClaw gateway. Check the logs to confirm the model is being selected:
+
+```
+[SmartRouter] Selected: openai/gpt-4o-mini | Score: 0.932 | Strategy: weighted-scoring
+smart-router: routed to openai/gpt-4o-mini (class=simple, config-mapped)
+```
+
 ## Customizing routes
 
 Edit `src/config/routing.json` (or `dist/config/routing.json` after build) to:
