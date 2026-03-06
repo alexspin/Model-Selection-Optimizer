@@ -41,6 +41,10 @@ task = "shell.exec"
 args = "npx tsx src/start-gateway.ts"
 
 [[ports]]
+localPort = 5904
+externalPort = 3000
+
+[[ports]]
 localPort = 18789
 externalPort = 80
 
