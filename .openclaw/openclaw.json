@@ -11,8 +11,7 @@
       "workspace": "~/.openclaw/workspace",
       "model": {
         "primary": "anthropic/claude-sonnet-4-6"
-      },
-      "thinking": "off"
+      }
     }
   },
   "models": {
