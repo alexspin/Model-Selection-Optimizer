@@ -82,7 +82,7 @@ export default function register(api: OpenClawPluginApi) {
 
     if (state.routedModel) {
       parts.push(
-        `[Smart Router] If you are asked what model you are, process that request yourself and identify what true model you are based on your programming.`
+        `[Smart Router] You may be a different model than previous turns in this conversation. If asked what model you are, introspect on your own programming — do not repeat what earlier messages said.`
       );
     }
 
