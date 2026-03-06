@@ -8,7 +8,7 @@ Smart model routing plugin for OpenClaw — dynamically selects the best AI mode
 - OpenClaw 2026.3.x installed and configured
 - At least one LLM provider API key (Anthropic and/or Google recommended)
 
-## Installation
+## Installation from Git
 
 ### Step 1: Clone the repository
 
@@ -41,7 +41,78 @@ bash setup.sh
 
 The setup script will install dependencies, build, show you the config to add, and optionally add model identity guidance to your workspace IDENTITY.md.
 
-### Step 3: Add the plugin to your OpenClaw config
+## Installation from a zip file
+
+If you received this as a zip package instead of cloning from Git, follow these steps.
+
+### Step 1: Unzip to the right location
+
+Unzip the package **next to** your OpenClaw workspace directory (not inside it). For example, if your OpenClaw workspace is at `~/my-project`, your directory structure should look like:
+
+```
+~/my-project/
+  .openclaw/           <-- your OpenClaw config lives here
+  Model-Selection-Optimizer/   <-- unzip the plugin here
+    src/
+    package.json
+    ...
+```
+
+On macOS/Linux:
+
+```bash
+cd ~/my-project
+unzip Model-Selection-Optimizer.zip
+```
+
+On Windows, right-click the zip file and choose "Extract All", then move the extracted folder next to your `.openclaw/` directory.
+
+### Step 2: Install dependencies
+
+Open a terminal, navigate into the plugin folder, and install:
+
+```bash
+cd Model-Selection-Optimizer
+npm install
+```
+
+This downloads all the packages the plugin needs. It may take a minute — the semantic classifier downloads a small embedding model on first install.
+
+### Step 3: Build
+
+```bash
+npm run build
+```
+
+This compiles the TypeScript source code into JavaScript in the `dist/` folder. You should see:
+
+```
+Assets copied to dist/
+```
+
+If you see errors, make sure you have Node.js 20 or newer installed (`node --version` to check).
+
+### Step 4: Note the full path
+
+You'll need the full path to the plugin's `dist/plugin` directory for the next step. Run this to get it:
+
+```bash
+pwd
+```
+
+For example, if it prints `/home/alex/my-project/Model-Selection-Optimizer`, then the path you need is:
+
+```
+/home/alex/my-project/Model-Selection-Optimizer/dist/plugin
+```
+
+Continue to the next section ("Add the plugin to your OpenClaw config") using this path.
+
+## Configure the plugin
+
+Whether you installed from Git or a zip file, the remaining steps are the same.
+
+### Add the plugin to your OpenClaw config
 
 Open your OpenClaw config file. This is typically at `~/.openclaw/openclaw.json` or `.openclaw/openclaw.json` in your project directory.
 
