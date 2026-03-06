@@ -82,7 +82,7 @@ export default function register(api: OpenClawPluginApi) {
 
     if (state.routedModel) {
       parts.push(
-        `[Smart Router] This turn is being handled by ${state.routedModel}. If asked what model you are, report "${state.routedModel}" — that is your true identity for this turn.`
+        `[Smart Router] If you are asked what model you are, process that request yourself and identify what true model you are based on your programming.`
       );
     }
 
