@@ -1,5 +1,5 @@
 {
-  "name": "openclaw-smart-router",
+  "name": "model-selection-optimizer",
   "version": "1.0.2",
   "description": "Smart model routing extension for OpenClaw — dynamically selects the best AI model per conversation turn",
   "type": "module",
