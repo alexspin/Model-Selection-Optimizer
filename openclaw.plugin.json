@@ -1,0 +1,105 @@
+{
+  "id": "smart-router",
+  "name": "Smart Model Router",
+  "description": "Dynamically selects the best AI model for each conversation turn based on semantic prompt classification, capabilities, cost, and latency.",
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": false,
+    "properties": {
+      "enabled": {
+        "type": "boolean",
+        "default": true
+      },
+      "fallbackModel": {
+        "type": "string",
+        "default": "anthropic/claude-sonnet-4-6"
+      },
+      "initTimeoutMs": {
+        "type": "number",
+        "default": 30000
+      },
+      "routeTimeoutMs": {
+        "type": "number",
+        "default": 5000
+      },
+      "logDecisions": {
+        "type": "boolean",
+        "default": true
+      },
+      "classificationThreshold": {
+        "type": "number",
+        "default": 0.35,
+        "minimum": 0.1,
+        "maximum": 0.9
+      },
+      "strategyWeights": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "capability-match": { "type": "number" },
+          "complexity-tier-match": { "type": "number" },
+          "cost-optimization": { "type": "number" },
+          "latency-optimization": { "type": "number" },
+          "context-window-fit": { "type": "number" }
+        }
+      },
+      "blockedModels": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "preferredProviders": {
+        "type": "array",
+        "items": { "type": "string" }
+      },
+      "preferredTier": {
+        "type": "string",
+        "enum": ["frontier", "mid", "budget", "local"]
+      }
+    }
+  },
+  "uiHints": {
+    "enabled": {
+      "label": "Enable Smart Routing",
+      "help": "When disabled, OpenClaw uses its default model for all turns."
+    },
+    "fallbackModel": {
+      "label": "Fallback Model",
+      "help": "Model to use if the router fails or times out."
+    },
+    "initTimeoutMs": {
+      "label": "Init Timeout (ms)",
+      "help": "Maximum time to wait for the embedding model to load on first use.",
+      "advanced": true
+    },
+    "routeTimeoutMs": {
+      "label": "Route Timeout (ms)",
+      "help": "Maximum time allowed for each routing decision.",
+      "advanced": true
+    },
+    "logDecisions": {
+      "label": "Log Routing Decisions",
+      "help": "Log which model was selected and why for each turn."
+    },
+    "classificationThreshold": {
+      "label": "Classification Confidence Threshold",
+      "help": "Minimum confidence (0-1) for the classifier to directly route to a class's model. Below this, the full scoring pipeline runs instead. Default 0.35. Lower values route more aggressively, higher values use the scoring engine more often."
+    },
+    "strategyWeights": {
+      "label": "Strategy Weights",
+      "help": "Override scoring strategy weights (0-1). Keys: capability-match, complexity-tier-match, cost-optimization, latency-optimization, context-window-fit.",
+      "advanced": true
+    },
+    "blockedModels": {
+      "label": "Blocked Models",
+      "help": "Model IDs to exclude from routing (e.g. 'openai/gpt-4o')."
+    },
+    "preferredProviders": {
+      "label": "Preferred Providers",
+      "help": "Prefer models from these providers when scores are close."
+    },
+    "preferredTier": {
+      "label": "Preferred Tier",
+      "help": "Prefer models from this tier when scores are close."
+    }
+  }
+}

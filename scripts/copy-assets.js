@@ -12,5 +12,6 @@ mkdirSync(join(dist, "plugin"), { recursive: true });
 cpSync(join(root, "src", "config", "routing.json"), join(dist, "config", "routing.json"));
 cpSync(join(root, "src", "config", "examples"), join(dist, "config", "examples"), { recursive: true });
 cpSync(join(root, "src", "plugin", "openclaw.plugin.json"), join(dist, "plugin", "openclaw.plugin.json"));
+cpSync(join(root, "src", "plugin", "openclaw.plugin.json"), join(root, "openclaw.plugin.json"));
 
 console.log("Assets copied to dist/");

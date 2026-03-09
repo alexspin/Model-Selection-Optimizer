@@ -15,6 +15,7 @@
   },
   "files": [
     "dist/",
+    "openclaw.plugin.json",
     "src/config/routing.json",
     "src/config/examples/",
     "src/plugin/openclaw.plugin.json",
