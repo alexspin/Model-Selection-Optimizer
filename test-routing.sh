@@ -37,7 +37,7 @@ send "1/6 — /simple → expect Gemini Flash" \
   "/simple What is 2+2? Also, what model are you? State your exact model name."
 
 send "2/6 — /coding → expect Claude Sonnet" \
-  "/coding Write a Python function that reverses a linked list. Also, what model are you? State your exact model name."
+  "/coding Write a Python function that reverses a linked list. Also, what model are you?"
 
 send "3/6 — /reason → expect Gemini Pro" \
   "/reason Compare microservices vs monoliths for a small startup. Also, what model are you?"
@@ -48,10 +48,10 @@ send "4/6 — simple class (casual question)" \
   "Hey, what is the capital of France? Also, what model are you?"
 
 send "5/6 — coding class (code task)" \
-  "Write a TypeScript function that debounces an async callback with a configurable delay. Also, what model are you? State your exact model name."
+  "Write a TypeScript function that debounces an async callback with a configurable delay. Also, what model are you?"
 
 send "6/6 — creative class (writing task)" \
-  "Write a short poem about a cat who learned to code. Also, what model are you? State your exact model name."
+  "Write a short poem about a cat who learned to code. Also, what model are you?"
 
 echo ""
 echo -e "${BOLD}${GREEN}╔══════════════════════════════════════════════════╗${RESET}"
