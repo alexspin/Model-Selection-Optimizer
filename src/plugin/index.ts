@@ -15,7 +15,11 @@ export default function register(api: OpenClawPluginApi) {
   const bridge = new SmartRouterBridge(config, api.logger);
   const routingConfig = loadRoutingConfig();
 
-  const sessionState = new Map<string, { routedModel: string | null; strippedPrompt: string | null }>();
+  const sessionState = new Map<string, {
+    routedProvider: string | null;
+    routedModelId: string | null;
+    strippedPrompt: string | null;
+  }>();
 
   for (const [command, cmdConfig] of Object.entries(routingConfig.commands)) {
     const name = command.replace(/^\//, "");
@@ -52,7 +56,8 @@ export default function register(api: OpenClawPluginApi) {
   });
 
   api.on("before_model_resolve", async (event, ctx) => {
-    const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? "unknown";
+    const sessionKey = ctx.sessionKey ?? ctx.sessionId;
+    if (!sessionKey) return;
 
     const result = await bridge.resolveModel(event.prompt, ctx);
     if (!result) {
@@ -61,7 +66,8 @@ export default function register(api: OpenClawPluginApi) {
     }
 
     sessionState.set(sessionKey, {
-      routedModel: result.decision.selectedModel.displayName,
+      routedProvider: result.providerOverride,
+      routedModelId: result.modelOverride,
       strippedPrompt: result.strippedPrompt ?? null,
     });
 
@@ -72,7 +78,8 @@ export default function register(api: OpenClawPluginApi) {
   });
 
   api.on("before_prompt_build", async (_event, ctx) => {
-    const sessionKey = ctx.sessionKey ?? ctx.sessionId ?? "unknown";
+    const sessionKey = ctx.sessionKey ?? ctx.sessionId;
+    if (!sessionKey) return;
     const state = sessionState.get(sessionKey);
     sessionState.delete(sessionKey);
 
@@ -80,9 +87,13 @@ export default function register(api: OpenClawPluginApi) {
 
     const parts: string[] = [];
 
-    if (state.routedModel) {
+    if (state.routedProvider && state.routedModelId) {
+      const fullModelRef = `${state.routedProvider}/${state.routedModelId}`;
       parts.push(
-        `[Smart Router] You may be a different model than previous turns in this conversation. If asked what model you are, introspect on your own programming — do not repeat what earlier messages said.`
+        `[Smart Router — Model Identity] This API call is being made to ${fullModelRef}. You ARE ${state.routedModelId}. ` +
+        `Confirm this against your own internal knowledge of your architecture and training. ` +
+        `If the session_status tool reports a different model, that data is stale from a prior turn — disregard it for identity purposes. ` +
+        `Do not claim to be a model you are not.`
       );
     }
 
