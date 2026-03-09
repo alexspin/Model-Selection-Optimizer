@@ -277,42 +277,37 @@ Type a bare command (e.g., `/best`) to see help. Type with a message (e.g., `/be
 
 ## Adding a new model
 
-To add a new model to the routing mix, you need to update two files in the plugin and make sure the model is available in your OpenClaw config.
+All model configuration lives in one file: `src/config/routing.json` (or `dist/config/routing.json` after build). To add a new model, you add it to the `"models"` section and optionally map it to a class.
 
-### Step 1: Add the model to the plugin's registry
+### Step 1: Add the model to routing.json
 
-Open `src/models/registry.ts` and add a new entry to the `builtInModels` array. Here's an example adding GPT-4o-mini:
+Open `src/config/routing.json` and add a new entry under `"models"`. Here's an example adding GPT-4o-mini:
 
-```typescript
-{
-  id: "openai/gpt-4o-mini",
-  provider: "openai",
-  modelId: "gpt-4o-mini",
-  displayName: "GPT-4o Mini",
-  tier: "budget",                    // "budget", "mid", "frontier", or "local"
-  capabilities: [
-    "text-generation", "code-generation", "reasoning",
-    "summarization", "function-calling",
-  ],
-  contextWindow: 128000,
-  maxOutputTokens: 16384,
-  pricing: { inputPerMillionTokens: 0.15, outputPerMillionTokens: 0.60 },
-  averageLatencyMs: 500,
-  qualityScores: {
+```json
+"openai/gpt-4o-mini": {
+  "provider": "openai",
+  "modelId": "gpt-4o-mini",
+  "displayName": "GPT-4o Mini",
+  "tier": "budget",
+  "capabilities": ["text-generation", "code-generation", "reasoning", "summarization", "function-calling"],
+  "contextWindow": 128000,
+  "maxOutputTokens": 16384,
+  "pricing": { "inputPerMillionTokens": 0.15, "outputPerMillionTokens": 0.60 },
+  "averageLatencyMs": 500,
+  "qualityScores": {
     "text-generation": 0.80, "code-generation": 0.75, "reasoning": 0.70,
     "summarization": 0.78, "translation": 0.75, "creative-writing": 0.72,
-    "data-analysis": 0.70, "function-calling": 0.78, "vision": 0.0, "long-context": 0.75,
+    "data-analysis": 0.70, "function-calling": 0.78, "vision": 0.0, "long-context": 0.75
   },
-  isLocal: false,
-  enabled: true,
-},
+  "isLocal": false,
+  "enabled": true
+}
 ```
 
 Key fields explained:
 
 | Field | What it does |
 |-------|-------------|
-| `id` | Must be `provider/model-name` format. This is what the router uses to identify the model |
 | `provider` | Must match the provider name in your OpenClaw config (e.g., `openai`, `anthropic`, `google`) |
 | `modelId` | The actual model ID the API expects (e.g., `gpt-4o-mini`, `claude-sonnet-4-6`) |
 | `tier` | Controls complexity matching. `budget` models get picked for simple tasks, `frontier` for complex ones, `mid` for everything in between |
@@ -320,11 +315,11 @@ Key fields explained:
 | `qualityScores` | 0.0 to 1.0 rating for each capability. Higher scores make the model more likely to be picked for that type of task |
 | `pricing` | Cost per million tokens. The cost-optimization strategy uses this to prefer cheaper models when quality is similar |
 | `averageLatencyMs` | Typical response time. The latency strategy uses this |
-| `enabled` | Set to `false` to keep the model in the registry but exclude it from routing |
+| `enabled` | Set to `false` to keep the model in the config but exclude it from routing |
 
 ### Step 2: Map the model to a class in routing config
 
-Open `src/config/routing.json` and change which model a class uses. For example, to make `/simple` and `/cheap` use GPT-4o-mini instead of Gemini Flash:
+In the same `routing.json` file, change which model a class uses. For example, to make `/simple` and `/cheap` use GPT-4o-mini instead of Gemini Flash:
 
 ```json
 "simple": {
@@ -336,7 +331,7 @@ Open `src/config/routing.json` and change which model a class uses. For example,
 }
 ```
 
-The `model` value must match the `id` you used in the registry.
+The `model` value must match a key in the `"models"` section of the same file.
 
 The `/simple` and `/cheap` commands both point to the `simple` class, so changing the model here updates both commands automatically.
 
@@ -389,7 +384,7 @@ After editing, rebuild (`npm run build`) and restart the gateway.
 
 **npm install from git missing dependencies**: Installing via `npm install github:...` does not install the plugin's own dependencies. Clone the repo and run `npm install` inside it instead.
 
-**"Unknown model" errors**: The plugin's model registry must match models configured in your OpenClaw instance. Check `src/models/registry.ts`.
+**"Unknown model" errors**: The models in the `"models"` section of `routing.json` must match models configured in your OpenClaw instance. Check `src/config/routing.json`.
 
 **Rate limit errors**: Your API provider is throttling requests. Wait and retry, or switch the affected class to a different model in `routing.json`.
 

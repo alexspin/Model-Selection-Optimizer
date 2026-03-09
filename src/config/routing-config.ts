@@ -15,13 +15,54 @@ export interface CommandConfig {
   helpText: string;
 }
 
+export interface ModelEntry {
+  provider: string;
+  modelId: string;
+  displayName: string;
+  tier: string;
+  capabilities: string[];
+  contextWindow: number;
+  maxOutputTokens: number;
+  pricing: {
+    inputPerMillionTokens: number;
+    outputPerMillionTokens: number;
+    cacheReadPerMillionTokens?: number;
+    cacheWritePerMillionTokens?: number;
+  };
+  averageLatencyMs: number;
+  qualityScores: Record<string, number>;
+  isLocal?: boolean;
+  enabled?: boolean;
+}
+
 export interface RoutingConfig {
+  models?: Record<string, ModelEntry>;
   commands: Record<string, CommandConfig>;
   classes: Record<string, ClassConfig>;
   fallbackClass: string;
 }
 
 const BUILTIN_CONFIG: RoutingConfig = {
+  models: {
+    "anthropic/claude-sonnet-4-6": {
+      provider: "anthropic", modelId: "claude-sonnet-4-6", displayName: "Claude Sonnet 4.6", tier: "mid",
+      capabilities: ["text-generation", "code-generation", "reasoning", "summarization", "creative-writing", "data-analysis", "function-calling", "long-context"],
+      contextWindow: 200000, maxOutputTokens: 8192,
+      pricing: { inputPerMillionTokens: 3, outputPerMillionTokens: 15 },
+      averageLatencyMs: 1500,
+      qualityScores: { "text-generation": 0.93, "code-generation": 0.94, "reasoning": 0.92, "summarization": 0.93, "translation": 0.90, "creative-writing": 0.92, "data-analysis": 0.91, "function-calling": 0.93, "vision": 0.0, "long-context": 0.93 },
+      isLocal: false, enabled: true,
+    },
+    "google/gemini-2.5-flash": {
+      provider: "google", modelId: "gemini-2.5-flash", displayName: "Gemini 2.5 Flash", tier: "budget",
+      capabilities: ["text-generation", "code-generation", "reasoning", "summarization", "function-calling", "vision"],
+      contextWindow: 1000000, maxOutputTokens: 65536,
+      pricing: { inputPerMillionTokens: 0.15, outputPerMillionTokens: 0.6 },
+      averageLatencyMs: 400,
+      qualityScores: { "text-generation": 0.84, "code-generation": 0.83, "reasoning": 0.80, "summarization": 0.83, "translation": 0.82, "creative-writing": 0.78, "data-analysis": 0.80, "function-calling": 0.82, "vision": 0.82, "long-context": 0.90 },
+      isLocal: false, enabled: true,
+    },
+  },
   commands: {
     "/simple": { class: "simple", helpText: "Simple/Budget routing — Routes to budget model.\nUsage: /simple <your message>" },
     "/cheap": { class: "simple", helpText: "Budget routing — Alias for /simple.\nUsage: /cheap <your message>" },

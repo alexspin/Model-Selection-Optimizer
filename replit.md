@@ -30,12 +30,12 @@ src/
 ├── setup.ts                         # OpenClaw health check
 ├── start-gateway.ts                 # Gateway launcher
 ├── types/index.ts                   # All TypeScript interfaces + Zod schemas
-├── models/registry.ts               # Model catalog (5 models, real pricing)
+├── models/registry.ts               # Model registry (loads from routing.json)
 ├── analyzers/
 │   ├── prompt-analyzer.ts           # Confidence-aware complexity detection
 │   └── semantic-classifier.ts       # Embedding-based prompt classifier (REAL)
 ├── config/
-│   ├── routing.json                 # ** MAIN CONFIG ** — commands, classes, model mappings
+│   ├── routing.json                 # ** SINGLE CONFIG ** — models, commands, classes (all in one)
 │   ├── routing-config.ts            # Loader/helpers for routing.json
 │   ├── defaults.ts                  # Default router config (strategy weights)
 │   ├── classifications.ts           # Builds classifications from routing.json
@@ -64,9 +64,7 @@ src/
     └── cost-tracker.ts              # Cost tracking per session/model
 
 .openclaw/                           # OpenClaw runtime config (IN PROJECT TREE)
-├── openclaw.json                    # Gateway config (providers, plugin, port)
-├── agents/main/agent/
-│   └── auth-profiles.json           # Provider auth (Google API key ref)
+├── openclaw.json                    # Gateway config (providers, API keys, plugin entry)
 └── workspace/
     ├── IDENTITY.md                  # Model identity instructions
     └── SOUL.md                      # Agent personality
@@ -170,4 +168,4 @@ When the scoring path runs, the analyzer extracts from classification results:
 - Default model: `anthropic/claude-sonnet-4-6`
 - Plugin: smart-router enabled via `plugins.entries.smart-router`
 - Google provider: Gemini 2.5 Pro + Flash configured via `models.providers.google`
-- Auth: `.openclaw/agents/main/agent/auth-profiles.json` references `GEMINI_API_KEY` env var
+- Agent-level `models.json` and `auth-profiles.json` removed (consolidated into `openclaw.json`; backups at `.bak`)
