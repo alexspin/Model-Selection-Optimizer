@@ -46,7 +46,8 @@ export default function register(api: OpenClawPluginApi) {
       if (lower.startsWith(command + " ")) {
         const stripped = content.slice(command.length).trim();
         if (stripped) {
-          const intentKey = ctx.conversationId ?? event.from;
+          const intentKey = ctx.conversationId ?? (ctx as any).sessionKey ?? (ctx as any).sessionId ?? event.from;
+          if (!intentKey) return;
           bridge.setRouteIntent(intentKey, cmdConfig.class, stripped);
           api.logger.info(`smart-router: stored intent class=${cmdConfig.class} from message_received key=${intentKey}`);
         }
