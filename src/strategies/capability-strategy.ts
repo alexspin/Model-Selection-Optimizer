@@ -32,6 +32,10 @@ export const capabilityStrategy: RoutingStrategy = {
       if (missingCritical) return 0;
     }
 
+    if (matchedCapabilities.length === 0) {
+      return 0;
+    }
+
     const qualityScore =
       matchedCapabilities.reduce(
         (sum, cap) => sum + (model.qualityScores[cap] || 0.5),

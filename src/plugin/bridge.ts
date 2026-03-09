@@ -51,6 +51,8 @@ interface MessageIntent {
 
 const INTENT_TTL_MS = 30_000;
 
+const OPENCLAW_PROMPT_WRAPPER = /^\[.*?\]\s*/;
+
 export type PrefixParseResult =
   | { match: "routed"; className: string; stripped: string }
   | { match: "bare-command" }
@@ -154,7 +156,7 @@ export class SmartRouterBridge {
   }
 
   async resolveModel(
-    _prompt: string,
+    prompt: string,
     hookContext?: { agentId?: string; sessionKey?: string; sessionId?: string; channelId?: string }
   ): Promise<ResolveResult | null> {
     if (!this.config.enabled) return null;
@@ -168,10 +170,13 @@ export class SmartRouterBridge {
       return this.resolveByClass(pending.className, pending.strippedPrompt, hookContext);
     }
 
-    const cleanText = pending?.cleanText ?? null;
+    const cleanText = pending?.cleanText
+      ?? prompt?.replace(OPENCLAW_PROMPT_WRAPPER, "").trim()
+      ?? null;
 
     if (cleanText) {
-      this.logger?.info?.(`smart-router: routing clean text: "${cleanText.substring(0, 120)}" session=${sessionKey}`);
+      const source = pending ? "message_received" : "event.prompt";
+      this.logger?.info?.(`smart-router: routing text (${source}): "${cleanText.substring(0, 120)}" session=${sessionKey}`);
 
       const prefixResult = parseRoutePrefix(cleanText);
       if (prefixResult?.match === "routed") {
@@ -180,8 +185,6 @@ export class SmartRouterBridge {
       if (prefixResult?.match === "bare-command") {
         return null;
       }
-    } else {
-      this.logger?.info?.(`smart-router: no clean text from message_received, skipping semantic route session=${sessionKey}`);
     }
 
     const textToRoute = cleanText;

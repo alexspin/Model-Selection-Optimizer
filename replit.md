@@ -132,6 +132,7 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
   - TTL-based expiry (30s) to prevent stale intents
 - `parseRoutePrefix()` — centralized prefix parser, returns discriminated union `PrefixParseResult` (`"routed"` | `"bare-command"` | `null`). Used by both `message_received` (index.ts) and `resolveModel` fallback path. Single source of truth for prefix logic.
 - `RoutingDecision.classificationName` — structured field populated by router, consumed directly by bridge (no regex parsing)
+- `event.prompt` fallback — when `message_received` doesn't fire (CLI, gateway calls), bridge falls back to the prompt from `before_model_resolve` event, stripping OpenClaw's `[timestamp]` wrapper before parsing
 - Config-driven class→model resolution via routing.json
 - Per-session routing state (keyed by `ctx.sessionKey`) to prevent cross-session leaks
 

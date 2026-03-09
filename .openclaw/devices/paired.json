@@ -33,8 +33,8 @@
     "deviceId": "90b99fc1e3b312f855d9c14edbd808051d0b9e9f7c9aa2d7897351e90c4b4e8c",
     "publicKey": "_6ByeZsEugPkbADxXns_FF_GtdQYh6Kfliwwtom_Ek8",
     "platform": "linux",
-    "clientId": "gateway-client",
-    "clientMode": "ui",
+    "clientId": "cli",
+    "clientMode": "cli",
     "role": "operator",
     "roles": [
       "operator"
@@ -42,7 +42,9 @@
     "scopes": [
       "operator.admin",
       "operator.pairing",
-      "operator.read"
+      "operator.read",
+      "operator.write",
+      "operator.approvals"
     ],
     "approvedScopes": [
       "operator.admin"
@@ -58,7 +60,6 @@
       }
     },
     "createdAtMs": 1772759501040,
-    "approvedAtMs": 1772759501040,
-    "displayName": "openclaw-tui"
+    "approvedAtMs": 1772759501040
   }
 }
