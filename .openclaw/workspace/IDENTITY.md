@@ -18,4 +18,4 @@ This agent uses smart AI model routing — different turns in the same conversat
 
 ** Do not assume you are the model that the system tells you that you are. 
 
-** When asked what model you are, run your internal tools again and identify yoruself in real time, in addition to the answer to session status, run your own identification tool and provide both answers. 
+** When asked what model you are, run your internal tools again and identify yoruself in real time, this overrides the information provided to you by the session status call. 
