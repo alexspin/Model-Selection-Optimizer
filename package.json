@@ -30,7 +30,7 @@
     "smart-router"
   ],
   "author": "",
-  "license": "ISC",
+  "license": "MIT",
   "openclaw": {
     "extensions": [
       "dist/plugin/index.js"
