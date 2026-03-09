@@ -1,19 +1,4 @@
 {
-  "gateway": {
-    "mode": "local",
-    "port": 18789,
-    "auth": {
-      "mode": "none"
-    }
-  },
-  "agents": {
-    "defaults": {
-      "workspace": "~/.openclaw/workspace",
-      "model": {
-        "primary": "anthropic/claude-sonnet-4-6"
-      }
-    }
-  },
   "models": {
     "mode": "merge",
     "providers": {
@@ -26,8 +11,16 @@
             "id": "gemini-2.5-pro",
             "name": "Gemini 2.5 Pro",
             "reasoning": false,
-            "input": ["text", "image"],
-            "cost": { "input": 1.25, "output": 10, "cacheRead": 0.32, "cacheWrite": 4.5 },
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 1.25,
+              "output": 10,
+              "cacheRead": 0.32,
+              "cacheWrite": 4.5
+            },
             "contextWindow": 1000000,
             "maxTokens": 65536
           },
@@ -35,8 +28,16 @@
             "id": "gemini-2.5-flash",
             "name": "Gemini 2.5 Flash",
             "reasoning": false,
-            "input": ["text", "image"],
-            "cost": { "input": 0.15, "output": 0.6, "cacheRead": 0.04, "cacheWrite": 0.1 },
+            "input": [
+              "text",
+              "image"
+            ],
+            "cost": {
+              "input": 0.15,
+              "output": 0.6,
+              "cacheRead": 0.04,
+              "cacheWrite": 0.1
+            },
             "contextWindow": 1000000,
             "maxTokens": 65536
           }
@@ -44,7 +45,51 @@
       }
     }
   },
+  "agents": {
+    "defaults": {
+      "model": {
+        "primary": "anthropic/claude-sonnet-4-6"
+      },
+      "workspace": "~/.openclaw/workspace"
+    }
+  },
+  "commands": {
+    "native": "auto",
+    "nativeSkills": "auto",
+    "restart": true,
+    "ownerDisplay": "raw"
+  },
+  "channels": {
+    "telegram": {
+      "enabled": true,
+      "botToken": "${TELEGRAM_BOT_TOKEN}",
+      "dmPolicy": "pairing",
+      "groupPolicy": "allowlist",
+      "streaming": "partial",
+      "customCommands": [
+        { "command": "simple", "description": "Route to budget model (Gemini Flash)" },
+        { "command": "cheap", "description": "Route to budget model (alias for simple)" },
+        { "command": "coding", "description": "Route to coding model (Claude Sonnet)" },
+        { "command": "creative", "description": "Route to creative writing model" },
+        { "command": "action", "description": "Route to action/tool-calling model" },
+        { "command": "reason", "description": "Route to reasoning model (Gemini Pro)" },
+        { "command": "best", "description": "Route to best available model" }
+      ]
+    }
+  },
+  "gateway": {
+    "port": 18789,
+    "mode": "local",
+    "auth": {
+      "mode": "none"
+    }
+  },
   "plugins": {
+    "load": {
+      "paths": [
+        "/home/runner/workspace/src/plugin"
+      ]
+    },
     "entries": {
       "smart-router": {
         "enabled": true,
@@ -53,11 +98,10 @@
           "logDecisions": true
         }
       }
-    },
-    "load": {
-      "paths": [
-        "/home/runner/workspace/src/plugin"
-      ]
     }
+  },
+  "meta": {
+    "lastTouchedVersion": "2026.3.2",
+    "lastTouchedAt": "2026-03-09T22:26:16.637Z"
   }
 }

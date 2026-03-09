@@ -41,7 +41,8 @@
       "operator"
     ],
     "scopes": [
-      "operator.admin"
+      "operator.admin",
+      "operator.pairing"
     ],
     "approvedScopes": [
       "operator.admin"

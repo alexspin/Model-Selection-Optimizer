@@ -46,7 +46,6 @@ interface RouteIntent {
   className: string;
   strippedPrompt: string;
   timestamp: number;
-  intentId: string;
 }
 
 const INTENT_TTL_MS = 30_000;
@@ -113,53 +112,47 @@ export class SmartRouterBridge {
 
   setRouteIntent(key: string, className: string, strippedPrompt: string): void {
     this.purgeStaleIntents();
-    const intent: RouteIntent = {
+    this.routeIntents.set(key, {
       className,
       strippedPrompt,
       timestamp: Date.now(),
-      intentId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-    };
-    this.routeIntents.set(key, intent);
+    });
   }
 
-  setRouteIntentMultiKey(keys: string[], className: string, strippedPrompt: string): void {
-    this.purgeStaleIntents();
-    const intentId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-    const intent: RouteIntent = {
-      className,
-      strippedPrompt,
-      timestamp: Date.now(),
-      intentId,
-    };
-    for (const key of keys) {
-      this.routeIntents.set(key, intent);
-    }
-  }
+  private static extractChannelAndPeer(key: string): { channel: string; peerId: string } | null {
+    const parts = key.split(":").filter(Boolean);
+    if (parts.length < 2) return null;
 
-  private purgeIntentById(id: string): void {
-    for (const [key, intent] of this.routeIntents) {
-      if (intent.intentId === id) {
-        this.routeIntents.delete(key);
-      }
+    if (parts[0] === "agent" && parts.length >= 4) {
+      return { channel: parts[2], peerId: parts[parts.length - 1] };
     }
+
+    return { channel: parts[0], peerId: parts[parts.length - 1] };
   }
 
   consumeRouteIntent(sessionKey: string): RouteIntent | null {
     const intent = this.routeIntents.get(sessionKey);
     if (intent) {
-      this.purgeIntentById(intent.intentId);
+      this.routeIntents.delete(sessionKey);
       if (Date.now() - intent.timestamp > INTENT_TTL_MS) return null;
       return intent;
     }
 
     const now = Date.now();
+    const session = SmartRouterBridge.extractChannelAndPeer(sessionKey);
+    if (!session) return null;
+
     for (const [key, candidate] of this.routeIntents) {
       if (now - candidate.timestamp > INTENT_TTL_MS) {
         this.routeIntents.delete(key);
         continue;
       }
-      if (sessionKey.includes(key) || key.includes(sessionKey)) {
-        this.purgeIntentById(candidate.intentId);
+
+      const stored = SmartRouterBridge.extractChannelAndPeer(key);
+      if (!stored) continue;
+
+      if (session.channel === stored.channel && session.peerId === stored.peerId) {
+        this.routeIntents.delete(key);
         return candidate;
       }
     }

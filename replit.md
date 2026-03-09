@@ -128,6 +128,10 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
 ### Bridge (`src/plugin/bridge.ts`)
 - Lazy init with timeout protection
 - `setRouteIntent()` / `consumeRouteIntent()` — per-session state for cross-hook communication
+  - `message_received` stores under `conversationId` (e.g. `telegram:8406588466`)
+  - `before_model_resolve` looks up by `sessionKey` (e.g. `agent:main:telegram:direct:8406588466`)
+  - `extractChannelAndPeer()` parses both formats → matches on channel + peerId deterministically
+  - No multi-key shotgun; single-key storage with precise cross-format matching
 - `parseRoutePrefix()` — TUI fallback prompt parsing (extracts user message from OpenClaw's wrapped prompt format)
 - Config-driven class→model resolution via routing.json
 - Per-session routing state (keyed by `ctx.sessionKey`) to prevent cross-session leaks
@@ -172,3 +176,5 @@ When the scoring path runs, the analyzer extracts from classification results:
 - Plugin: smart-router enabled via `plugins.entries.smart-router`
 - Google provider: Gemini 2.5 Pro + Flash configured via `models.providers.google`
 - Agent-level `models.json` and `auth-profiles.json` removed (consolidated into `openclaw.json`; backups at `.bak`)
+- Telegram channel: `botToken: ${TELEGRAM_BOT_TOKEN}`, `customCommands` for all 7 routing commands
+- Secrets: `ANTHROPIC_API_KEY`, `GOOGLE_API_KEY`, `TELEGRAM_BOT_TOKEN`

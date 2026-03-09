@@ -49,16 +49,10 @@ export default function register(api: OpenClawPluginApi) {
         if (lower.startsWith(prefix + " ")) {
           const stripped = content.slice(prefix.length).trim();
           if (stripped) {
-            const candidateKeys = [
-              ctx.conversationId,
-              (ctx as any).sessionKey,
-              (ctx as any).sessionId,
-              event.from,
-            ].filter((k): k is string => typeof k === "string" && k.length > 0);
-            if (candidateKeys.length === 0) return;
-            const uniqueKeys = [...new Set(candidateKeys)];
-            bridge.setRouteIntentMultiKey(uniqueKeys, cmdConfig.class, stripped);
-            api.logger.info(`smart-router: stored intent class=${cmdConfig.class} from message_received keys=[${uniqueKeys.join(", ")}] prefix=${prefix}`);
+            const intentKey = ctx.conversationId ?? event.from;
+            if (!intentKey) return;
+            bridge.setRouteIntent(intentKey, cmdConfig.class, stripped);
+            api.logger.info(`smart-router: stored intent class=${cmdConfig.class} from message_received key=${intentKey} prefix=${prefix}`);
           }
           return;
         }
