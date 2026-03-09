@@ -41,7 +41,7 @@ export default function register(api: OpenClawPluginApi) {
     const lower = content.toLowerCase();
     for (const [command, cmdConfig] of Object.entries(routingConfig.commands)) {
       const name = command.replace(/^\//, "");
-      const prefixes = [`/${name}`, `!${name}`];
+      const prefixes = [`/${name}`, `~${name}`];
       for (const prefix of prefixes) {
         if (lower === prefix) {
           return;

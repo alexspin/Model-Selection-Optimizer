@@ -275,17 +275,17 @@ After installation, these commands are available in OpenClaw:
 
 Type a bare command (e.g., `/best`) to see help. Type with a message (e.g., `/best explain quantum computing`) to route that message.
 
-### Telegram: use `!` prefix
+### Alternate prefix: `~` (for Telegram, nchat, and other clients)
 
-Telegram intercepts `/` commands natively, so on Telegram you can use `!` as the prefix instead:
+Some chat clients intercept `/` commands (Telegram, nchat) or `!` commands (nchat, OpenClaw built-ins) before they reach OpenClaw. Use `~` as a universal fallback prefix:
 
 ```
-!simple what model are you?
-!coding write a function to reverse a string
-!best explain quantum computing
+~simple what model are you?
+~coding write a function to reverse a string
+~best explain quantum computing
 ```
 
-Both `/` and `!` prefixes work everywhere — TUI, web, Telegram, Discord. The `!` prefix is just more reliable on Telegram since it avoids Telegram's built-in command autocomplete.
+Both `/` and `~` prefixes work everywhere. Use `~` when your client grabs `/` commands before OpenClaw can see them.
 
 ### Telegram: register commands with BotFather (optional)
 

@@ -114,8 +114,8 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
 
 ### Registered Commands (acceptsArgs: false)
 - `/simple`, `/cheap`, `/coding`, `/creative`, `/action`, `/reason`, `/best`
-- Both `/` and `!` prefixes are supported (e.g., `!simple hello` works same as `/simple hello`)
-- `!` prefix exists for Telegram compatibility — Telegram intercepts `/` commands natively
+- Both `/` and `~` prefixes are supported (e.g., `~simple hello` works same as `/simple hello`)
+- `~` prefix exists for Telegram/nchat compatibility — those clients intercept `/` and `!` commands natively
 - Bare command → returns help text describing the routing class
 - Command with args (e.g., `/best explain this`) → falls through to agent pipeline, picked up by hooks
 - Optional BotFather registration: `channels.telegram.customCommands` in `openclaw.json` for native Telegram autocomplete
