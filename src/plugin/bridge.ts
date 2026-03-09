@@ -104,6 +104,7 @@ export class SmartRouterBridge {
   private initialized = false;
   private initFailed = false;
   private routeIntents = new Map<string, RouteIntent>();
+  private lastIntent: { intent: RouteIntent; sourceKey: string; timestamp: number } | null = null;
 
   constructor(
     private config: SmartRouterPluginConfig = DEFAULT_PLUGIN_CONFIG,
@@ -112,11 +113,13 @@ export class SmartRouterBridge {
 
   setRouteIntent(key: string, className: string, strippedPrompt: string): void {
     this.purgeStaleIntents();
-    this.routeIntents.set(key, {
+    const intent: RouteIntent = {
       className,
       strippedPrompt,
       timestamp: Date.now(),
-    });
+    };
+    this.routeIntents.set(key, intent);
+    this.lastIntent = { intent, sourceKey: key, timestamp: Date.now() };
   }
 
   private static extractChannelAndPeer(key: string): { channel: string; peerId: string } | null {
@@ -153,9 +156,21 @@ export class SmartRouterBridge {
 
       if (session.channel === stored.channel && session.peerId === stored.peerId) {
         this.routeIntents.delete(key);
+        this.lastIntent = null;
         return candidate;
       }
     }
+
+    if (this.lastIntent && Date.now() - this.lastIntent.timestamp < 5_000) {
+      const intent = this.lastIntent.intent;
+      const sourceKey = this.lastIntent.sourceKey;
+      this.routeIntents.delete(sourceKey);
+      this.lastIntent = null;
+      if (Date.now() - intent.timestamp > INTENT_TTL_MS) return null;
+      this.logger?.info?.(`smart-router: matched intent via recency fallback (stored=${sourceKey}, lookup=${sessionKey})`);
+      return intent;
+    }
+    this.lastIntent = null;
     return null;
   }
 
@@ -230,6 +245,7 @@ export class SmartRouterBridge {
 
     const userMsg = extractUserMessage(prompt);
     this.logger?.info?.(`smart-router: resolving prompt: "${userMsg.substring(0, 120)}"`);
+    this.logger?.debug?.(`smart-router: extractUserMessage raw result (first 200): "${userMsg.substring(0, 200)}"`);
 
     const prefixMatch = parseRoutePrefix(prompt);
     if (prefixMatch) {
