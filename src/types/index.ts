@@ -74,6 +74,8 @@ export interface RoutingDecision {
   estimatedCost: number;
   strategy: string;
   timestamp: number;
+  classificationName?: string;
+  classificationConfidence?: number;
 }
 
 export interface RoutingContext {

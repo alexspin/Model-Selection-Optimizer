@@ -38,23 +38,14 @@ export default function register(api: OpenClawPluginApi) {
     const content = event.content?.trim();
     if (!content) return;
 
-    const lower = content.toLowerCase();
-    for (const [command, cmdConfig] of Object.entries(routingConfig.commands)) {
-      const name = command.replace(/^\//, "");
-      const prefixes = [`/${name}`, `~${name}`];
-      for (const prefix of prefixes) {
-        if (lower === prefix) {
-          return;
-        }
-        if (lower.startsWith(prefix + " ")) {
-          const stripped = content.slice(prefix.length).trim();
-          if (stripped) {
-            bridge.storeMessage(content, cmdConfig.class, stripped);
-            api.logger.info(`smart-router: stored command message class=${cmdConfig.class} prefix=${prefix}`);
-          }
-          return;
-        }
-      }
+    const prefixResult = parseRoutePrefix(content);
+    if (prefixResult?.match === "bare-command") {
+      return;
+    }
+    if (prefixResult?.match === "routed") {
+      bridge.storeMessage(content, prefixResult.className, prefixResult.stripped);
+      api.logger.info(`smart-router: stored command message class=${prefixResult.className}`);
+      return;
     }
 
     bridge.storeMessage(content);
@@ -112,7 +103,6 @@ export default function register(api: OpenClawPluginApi) {
 
     return {
       prependContext: parts.join("\n\n"),
-      ...(state.strippedPrompt ? { promptOverride: state.strippedPrompt } : {}),
     };
   });
 

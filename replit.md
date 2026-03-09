@@ -127,12 +127,11 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
 
 ### Bridge (`src/plugin/bridge.ts`)
 - Lazy init with timeout protection
-- `setRouteIntent()` / `consumeRouteIntent()` — per-session state for cross-hook communication
-  - `message_received` stores under `conversationId` (e.g. `telegram:8406588466`)
-  - `before_model_resolve` looks up by `sessionKey` (e.g. `agent:main:telegram:direct:8406588466`)
-  - `extractChannelAndPeer()` parses both formats → matches on channel + peerId deterministically
-  - No multi-key shotgun; single-key storage with precise cross-format matching
-- `parseRoutePrefix()` — TUI fallback prompt parsing (extracts user message from OpenClaw's wrapped prompt format)
+- `storeMessage()` / `consumePendingMessage()` — stores clean user text from `message_received` for consumption in `before_model_resolve`
+  - Single pending slot (safe because OpenClaw's lane serialization guarantees message_received→before_model_resolve is atomic per request)
+  - TTL-based expiry (30s) to prevent stale intents
+- `parseRoutePrefix()` — centralized prefix parser, returns discriminated union `PrefixParseResult` (`"routed"` | `"bare-command"` | `null`). Used by both `message_received` (index.ts) and `resolveModel` fallback path. Single source of truth for prefix logic.
+- `RoutingDecision.classificationName` — structured field populated by router, consumed directly by bridge (no regex parsing)
 - Config-driven class→model resolution via routing.json
 - Per-session routing state (keyed by `ctx.sessionKey`) to prevent cross-session leaks
 

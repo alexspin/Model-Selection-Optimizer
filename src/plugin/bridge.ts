@@ -3,7 +3,7 @@ import { SemanticClassifier } from "../analyzers/semantic-classifier.js";
 import { ModelRegistry } from "../models/registry.js";
 import { createRouterConfig } from "../config/defaults.js";
 import { defaultClassifications } from "../config/classifications.js";
-import { loadRoutingConfig, getModelForClass, getClassForCommand, getFallbackModel } from "../config/routing-config.js";
+import { loadRoutingConfig, getModelForClass, getFallbackModel } from "../config/routing-config.js";
 import type { RoutingContext, RoutingDecision, UserPreferences, ModelProvider, ModelTier } from "../types/index.js";
 
 export interface SmartRouterPluginConfig {
@@ -51,7 +51,12 @@ interface MessageIntent {
 
 const INTENT_TTL_MS = 30_000;
 
-export function parseRoutePrefix(text: string): { className: string; stripped: string } | null {
+export type PrefixParseResult =
+  | { match: "routed"; className: string; stripped: string }
+  | { match: "bare-command" }
+  | null;
+
+export function parseRoutePrefix(text: string): PrefixParseResult {
   const config = loadRoutingConfig();
   const lower = text.toLowerCase();
 
@@ -60,14 +65,14 @@ export function parseRoutePrefix(text: string): { className: string; stripped: s
     const prefixes = [`/${name}`, `~${name}`];
     for (const prefix of prefixes) {
       if (lower === prefix) {
-        return null;
+        return { match: "bare-command" };
       }
       if (lower.startsWith(prefix + " ")) {
         const stripped = text.slice(prefix.length).trim();
         if (stripped) {
-          return { className: cmdConfig.class, stripped };
+          return { match: "routed", className: cmdConfig.class, stripped };
         }
-        return null;
+        return { match: "bare-command" };
       }
     }
   }
@@ -80,7 +85,6 @@ export class SmartRouterBridge {
   private registry: ModelRegistry | null = null;
   private initPromise: Promise<void> | null = null;
   private initialized = false;
-  private initFailed = false;
   private pendingMessage: MessageIntent | null = null;
 
   constructor(
@@ -140,10 +144,8 @@ export class SmartRouterBridge {
       this.router.setSemanticClassifier(this.classifier);
 
       this.initialized = true;
-      this.initFailed = false;
       this.logger?.info?.("smart-router: initialized successfully");
     } catch (err) {
-      this.initFailed = true;
       this.initPromise = null;
       const msg = err instanceof Error ? err.message : String(err);
       this.logger?.error?.(`smart-router: initialization failed: ${msg}`);
@@ -152,7 +154,7 @@ export class SmartRouterBridge {
   }
 
   async resolveModel(
-    prompt: string,
+    _prompt: string,
     hookContext?: { agentId?: string; sessionKey?: string; sessionId?: string; channelId?: string }
   ): Promise<ResolveResult | null> {
     if (!this.config.enabled) return null;
@@ -171,9 +173,12 @@ export class SmartRouterBridge {
     if (cleanText) {
       this.logger?.info?.(`smart-router: routing clean text: "${cleanText.substring(0, 120)}" session=${sessionKey}`);
 
-      const prefixMatch = parseRoutePrefix(cleanText);
-      if (prefixMatch) {
-        return this.resolveByClass(prefixMatch.className, prefixMatch.stripped, hookContext);
+      const prefixResult = parseRoutePrefix(cleanText);
+      if (prefixResult?.match === "routed") {
+        return this.resolveByClass(prefixResult.className, prefixResult.stripped, hookContext);
+      }
+      if (prefixResult?.match === "bare-command") {
+        return null;
       }
     } else {
       this.logger?.info?.(`smart-router: no clean text from message_received, skipping semantic route session=${sessionKey}`);
@@ -206,7 +211,7 @@ export class SmartRouterBridge {
         ),
       ]);
 
-      const classifiedName = this.extractClassFromDecision(decision);
+      const classifiedName = decision.classificationName;
       if (classifiedName) {
         const configModel = getModelForClass(classifiedName);
         if (configModel) {
@@ -255,11 +260,6 @@ export class SmartRouterBridge {
       this.logger?.warn?.(`smart-router: routing failed, falling back to default: ${msg}`);
       return null;
     }
-  }
-
-  private extractClassFromDecision(decision: RoutingDecision): string | null {
-    const match = decision.reason.match(/Classification:\s*(\w+)/);
-    return match ? match[1] : null;
   }
 
   async resolveByClass(

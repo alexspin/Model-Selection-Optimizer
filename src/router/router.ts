@@ -11,7 +11,7 @@ import { analyzePrompt, analyzePromptWithClassifications } from "../analyzers/pr
 import { SemanticClassifier, type ClassificationResult } from "../analyzers/semantic-classifier.js";
 import { scoreModels } from "./scoring-engine.js";
 import { estimateCost } from "../strategies/cost-strategy.js";
-import { allStrategies, getStrategyByName } from "../strategies/index.js";
+import { getStrategyByName } from "../strategies/index.js";
 import { LLMMetaRouter } from "./meta-router.js";
 
 export class SmartRouter {
@@ -109,13 +109,16 @@ export class SmartRouter {
       score: s.totalScore,
     }));
 
+    const topClassification = classificationResults?.[0];
     const decision = this.buildDecision(
       best.model,
       this.explainDecision(analysis, best, classificationResults),
       best.totalScore,
       alternatives,
       analysis,
-      "weighted-scoring"
+      "weighted-scoring",
+      topClassification?.name,
+      topClassification?.confidence,
     );
 
     this.routingLog.push(decision);
@@ -164,9 +167,11 @@ export class SmartRouter {
     score: number,
     alternatives: Array<{ model: ModelProfile; score: number }>,
     analysis: PromptAnalysis,
-    strategy: string
+    strategy: string,
+    classificationName?: string,
+    classificationConfidence?: number,
   ): RoutingDecision {
-    return {
+    const decision: RoutingDecision = {
       selectedModel: model,
       reason,
       score,
@@ -175,6 +180,13 @@ export class SmartRouter {
       strategy,
       timestamp: Date.now(),
     };
+    if (classificationName !== undefined) {
+      decision.classificationName = classificationName;
+    }
+    if (classificationConfidence !== undefined) {
+      decision.classificationConfidence = classificationConfidence;
+    }
+    return decision;
   }
 
   private explainDecision(
