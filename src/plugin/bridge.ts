@@ -46,6 +46,7 @@ interface RouteIntent {
   className: string;
   strippedPrompt: string;
   timestamp: number;
+  intentId: string;
 }
 
 const INTENT_TTL_MS = 30_000;
@@ -112,17 +113,41 @@ export class SmartRouterBridge {
 
   setRouteIntent(key: string, className: string, strippedPrompt: string): void {
     this.purgeStaleIntents();
-    this.routeIntents.set(key, {
+    const intent: RouteIntent = {
       className,
       strippedPrompt,
       timestamp: Date.now(),
-    });
+      intentId: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    };
+    this.routeIntents.set(key, intent);
+  }
+
+  setRouteIntentMultiKey(keys: string[], className: string, strippedPrompt: string): void {
+    this.purgeStaleIntents();
+    const intentId = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+    const intent: RouteIntent = {
+      className,
+      strippedPrompt,
+      timestamp: Date.now(),
+      intentId,
+    };
+    for (const key of keys) {
+      this.routeIntents.set(key, intent);
+    }
+  }
+
+  private purgeIntentById(id: string): void {
+    for (const [key, intent] of this.routeIntents) {
+      if (intent.intentId === id) {
+        this.routeIntents.delete(key);
+      }
+    }
   }
 
   consumeRouteIntent(sessionKey: string): RouteIntent | null {
     const intent = this.routeIntents.get(sessionKey);
     if (intent) {
-      this.routeIntents.delete(sessionKey);
+      this.purgeIntentById(intent.intentId);
       if (Date.now() - intent.timestamp > INTENT_TTL_MS) return null;
       return intent;
     }
@@ -134,7 +159,7 @@ export class SmartRouterBridge {
         continue;
       }
       if (sessionKey.includes(key) || key.includes(sessionKey)) {
-        this.routeIntents.delete(key);
+        this.purgeIntentById(candidate.intentId);
         return candidate;
       }
     }
