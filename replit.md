@@ -114,13 +114,16 @@ The plugin uses a hybrid approach: OpenClaw's native command system for namespac
 
 ### Registered Commands (acceptsArgs: false)
 - `/simple`, `/cheap`, `/coding`, `/creative`, `/action`, `/reason`, `/best`
+- Both `/` and `!` prefixes are supported (e.g., `!simple hello` works same as `/simple hello`)
+- `!` prefix exists for Telegram compatibility — Telegram intercepts `/` commands natively
 - Bare command → returns help text describing the routing class
 - Command with args (e.g., `/best explain this`) → falls through to agent pipeline, picked up by hooks
+- Optional BotFather registration: `channels.telegram.customCommands` in `openclaw.json` for native Telegram autocomplete
 
 ### Hooks (3 registered)
 - `message_received` — captures clean user text from channel messages (Telegram, Discord), stores routing intent
 - `before_model_resolve` — applies stored intent OR parses prompt text (TUI fallback), returns model override
-- `before_prompt_build` — injects model identity context + strips slash-command prefixes
+- `before_prompt_build` — injects model identity context + strips routing command prefixes (`/` or `!`)
 
 ### Bridge (`src/plugin/bridge.ts`)
 - Lazy init with timeout protection

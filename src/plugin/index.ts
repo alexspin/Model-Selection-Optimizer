@@ -40,20 +40,25 @@ export default function register(api: OpenClawPluginApi) {
 
     const lower = content.toLowerCase();
     for (const [command, cmdConfig] of Object.entries(routingConfig.commands)) {
-      if (lower === command) {
-        return;
-      }
-      if (lower.startsWith(command + " ")) {
-        const stripped = content.slice(command.length).trim();
-        if (stripped) {
-          const intentKey = ctx.conversationId ?? (ctx as any).sessionKey ?? (ctx as any).sessionId ?? event.from;
-          if (!intentKey) return;
-          bridge.setRouteIntent(intentKey, cmdConfig.class, stripped);
-          api.logger.info(`smart-router: stored intent class=${cmdConfig.class} from message_received key=${intentKey}`);
+      const name = command.replace(/^\//, "");
+      const prefixes = [`/${name}`, `!${name}`];
+      for (const prefix of prefixes) {
+        if (lower === prefix) {
+          return;
         }
-        return;
+        if (lower.startsWith(prefix + " ")) {
+          const stripped = content.slice(prefix.length).trim();
+          if (stripped) {
+            const intentKey = ctx.conversationId ?? (ctx as any).sessionKey ?? (ctx as any).sessionId ?? event.from;
+            if (!intentKey) return;
+            bridge.setRouteIntent(intentKey, cmdConfig.class, stripped);
+            api.logger.info(`smart-router: stored intent class=${cmdConfig.class} from message_received key=${intentKey} prefix=${prefix}`);
+          }
+          return;
+        }
       }
     }
+
   });
 
   api.on("before_model_resolve", async (event, ctx) => {
@@ -100,7 +105,7 @@ export default function register(api: OpenClawPluginApi) {
 
     if (state.strippedPrompt) {
       parts.push(
-        `[Smart Router] The user's original message used a slash-prefix command. The actual prompt (with prefix removed) is:\n${state.strippedPrompt}`
+        `[Smart Router] The user's original message used a routing command prefix. The actual prompt (with prefix removed) is:\n${state.strippedPrompt}`
       );
     }
 

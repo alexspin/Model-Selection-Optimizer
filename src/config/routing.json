@@ -95,31 +95,31 @@
   "commands": {
     "/simple": {
       "class": "simple",
-      "helpText": "Simple/Budget routing — Routes to Gemini 2.5 Flash for fast, cheap responses. Best for quick facts, casual chat, and follow-ups.\nUsage: /simple <your message>"
+      "helpText": "Simple/Budget routing — Routes to Gemini 2.5 Flash for fast, cheap responses. Best for quick facts, casual chat, and follow-ups.\nUsage: /simple <your message> (or !simple on Telegram)"
     },
     "/cheap": {
       "class": "simple",
-      "helpText": "Budget routing — Alias for /simple. Routes to Gemini 2.5 Flash.\nUsage: /cheap <your message>"
+      "helpText": "Budget routing — Alias for /simple. Routes to Gemini 2.5 Flash.\nUsage: /cheap <your message> (or !cheap on Telegram)"
     },
     "/coding": {
       "class": "coding",
-      "helpText": "Code routing — Routes to Claude Sonnet 4.6 for writing code, debugging, refactoring, and code review.\nUsage: /coding <your message>"
+      "helpText": "Code routing — Routes to Claude Sonnet 4.6 for writing code, debugging, refactoring, and code review.\nUsage: /coding <your message> (or !coding on Telegram)"
     },
     "/creative": {
       "class": "creative",
-      "helpText": "Creative routing — Routes to Claude Sonnet 4.6 for writing content, emails, blog posts, and translation.\nUsage: /creative <your message>"
+      "helpText": "Creative routing — Routes to Claude Sonnet 4.6 for writing content, emails, blog posts, and translation.\nUsage: /creative <your message> (or !creative on Telegram)"
     },
     "/action": {
       "class": "action",
-      "helpText": "Action routing — Routes to Claude Sonnet 4.6 for tool calls, file operations, and system commands.\nUsage: /action <your message>"
+      "helpText": "Action routing — Routes to Claude Sonnet 4.6 for tool calls, file operations, and system commands.\nUsage: /action <your message> (or !action on Telegram)"
     },
     "/reason": {
       "class": "reasoning",
-      "helpText": "Reasoning routing — Routes to Gemini 2.5 Pro for deep analysis, architecture decisions, and complex reasoning.\nUsage: /reason <your message>"
+      "helpText": "Reasoning routing — Routes to Gemini 2.5 Pro for deep analysis, architecture decisions, and complex reasoning.\nUsage: /reason <your message> (or !reason on Telegram)"
     },
     "/best": {
       "class": "reasoning",
-      "helpText": "Best model routing — Alias for /reason. Routes to Gemini 2.5 Pro, the frontier reasoning model.\nUsage: /best <your message>"
+      "helpText": "Best model routing — Alias for /reason. Routes to Gemini 2.5 Pro, the frontier reasoning model.\nUsage: /best <your message> (or !best on Telegram)"
     }
   },
 

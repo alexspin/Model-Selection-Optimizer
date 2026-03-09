@@ -78,9 +78,19 @@ export function parseRoutePrefix(prompt: string): { className: string; stripped:
   const lower = userMsg.toLowerCase();
 
   for (const [command, cmdConfig] of Object.entries(config.commands)) {
-    if (lower.startsWith(command + " ") || lower === command) {
-      const stripped = userMsg.slice(command.length).trim();
-      return { className: cmdConfig.class, stripped: stripped || userMsg };
+    const name = command.replace(/^\//, "");
+    const prefixes = [`/${name}`, `!${name}`];
+    for (const prefix of prefixes) {
+      if (lower === prefix) {
+        return null;
+      }
+      if (lower.startsWith(prefix + " ")) {
+        const stripped = userMsg.slice(prefix.length).trim();
+        if (stripped) {
+          return { className: cmdConfig.class, stripped };
+        }
+        return null;
+      }
     }
   }
   return null;

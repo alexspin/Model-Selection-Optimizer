@@ -275,6 +275,42 @@ After installation, these commands are available in OpenClaw:
 
 Type a bare command (e.g., `/best`) to see help. Type with a message (e.g., `/best explain quantum computing`) to route that message.
 
+### Telegram: use `!` prefix
+
+Telegram intercepts `/` commands natively, so on Telegram you can use `!` as the prefix instead:
+
+```
+!simple what model are you?
+!coding write a function to reverse a string
+!best explain quantum computing
+```
+
+Both `/` and `!` prefixes work everywhere — TUI, web, Telegram, Discord. The `!` prefix is just more reliable on Telegram since it avoids Telegram's built-in command autocomplete.
+
+### Telegram: register commands with BotFather (optional)
+
+For the best Telegram experience, you can register the routing commands with BotFather so they show up in Telegram's `/` autocomplete menu. Add this to your `openclaw.json` under `channels.telegram`:
+
+```json
+{
+  "channels": {
+    "telegram": {
+      "customCommands": [
+        { "command": "simple", "description": "Route to budget model (Gemini Flash)" },
+        { "command": "cheap", "description": "Route to budget model (alias for simple)" },
+        { "command": "coding", "description": "Route to coding model (Claude Sonnet)" },
+        { "command": "creative", "description": "Route to creative writing model" },
+        { "command": "action", "description": "Route to action/tool-calling model" },
+        { "command": "reason", "description": "Route to reasoning model (Gemini Pro)" },
+        { "command": "best", "description": "Route to best available model" }
+      ]
+    }
+  }
+}
+```
+
+After adding this and restarting the gateway, Telegram will show these commands in the autocomplete when users type `/` in your bot's chat. The commands will pass through to OpenClaw and be handled by the smart-router plugin.
+
 ## Adding a new model
 
 All model configuration lives in one file: `src/config/routing.json` (or `dist/config/routing.json` after build). To add a new model, you add it to the `"models"` section and optionally map it to a class.
