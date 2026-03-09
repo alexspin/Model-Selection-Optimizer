@@ -42,40 +42,18 @@ export interface ResolveResult {
   strippedPrompt?: string;
 }
 
-interface RouteIntent {
-  className: string;
-  strippedPrompt: string;
+interface MessageIntent {
+  cleanText: string;
+  className?: string;
+  strippedPrompt?: string;
   timestamp: number;
 }
 
 const INTENT_TTL_MS = 30_000;
 
-function stripTimestampPrefix(text: string): string {
-  return text.replace(/^\[.*?\]\s*/, "");
-}
-
-function extractUserMessage(prompt: string): string {
-  let msg = prompt;
-
-  const senderBlockEnd = prompt.indexOf("\n```\n", prompt.indexOf("```json"));
-  if (senderBlockEnd !== -1) {
-    msg = prompt.slice(senderBlockEnd + 5).trim();
-  } else {
-    const lastNewlineBlock = prompt.lastIndexOf("\n\n");
-    if (lastNewlineBlock !== -1 && prompt.startsWith("Sender")) {
-      msg = prompt.slice(lastNewlineBlock).trim();
-    }
-  }
-
-  msg = stripTimestampPrefix(msg);
-
-  return msg;
-}
-
-export function parseRoutePrefix(prompt: string): { className: string; stripped: string } | null {
+export function parseRoutePrefix(text: string): { className: string; stripped: string } | null {
   const config = loadRoutingConfig();
-  const userMsg = extractUserMessage(prompt);
-  const lower = userMsg.toLowerCase();
+  const lower = text.toLowerCase();
 
   for (const [command, cmdConfig] of Object.entries(config.commands)) {
     const name = command.replace(/^\//, "");
@@ -85,7 +63,7 @@ export function parseRoutePrefix(prompt: string): { className: string; stripped:
         return null;
       }
       if (lower.startsWith(prefix + " ")) {
-        const stripped = userMsg.slice(prefix.length).trim();
+        const stripped = text.slice(prefix.length).trim();
         if (stripped) {
           return { className: cmdConfig.class, stripped };
         }
@@ -103,84 +81,28 @@ export class SmartRouterBridge {
   private initPromise: Promise<void> | null = null;
   private initialized = false;
   private initFailed = false;
-  private routeIntents = new Map<string, RouteIntent>();
-  private lastIntent: { intent: RouteIntent; sourceKey: string; timestamp: number } | null = null;
+  private pendingMessage: MessageIntent | null = null;
 
   constructor(
     private config: SmartRouterPluginConfig = DEFAULT_PLUGIN_CONFIG,
     private logger?: BridgeLogger
   ) {}
 
-  setRouteIntent(key: string, className: string, strippedPrompt: string): void {
-    this.purgeStaleIntents();
-    const intent: RouteIntent = {
+  storeMessage(cleanText: string, className?: string, strippedPrompt?: string): void {
+    this.pendingMessage = {
+      cleanText,
       className,
       strippedPrompt,
       timestamp: Date.now(),
     };
-    this.routeIntents.set(key, intent);
-    this.lastIntent = { intent, sourceKey: key, timestamp: Date.now() };
   }
 
-  private static extractChannelAndPeer(key: string): { channel: string; peerId: string } | null {
-    const parts = key.split(":").filter(Boolean);
-    if (parts.length < 2) return null;
-
-    if (parts[0] === "agent" && parts.length >= 4) {
-      return { channel: parts[2], peerId: parts[parts.length - 1] };
-    }
-
-    return { channel: parts[0], peerId: parts[parts.length - 1] };
-  }
-
-  consumeRouteIntent(sessionKey: string): RouteIntent | null {
-    const intent = this.routeIntents.get(sessionKey);
-    if (intent) {
-      this.routeIntents.delete(sessionKey);
-      if (Date.now() - intent.timestamp > INTENT_TTL_MS) return null;
-      return intent;
-    }
-
-    const now = Date.now();
-    const session = SmartRouterBridge.extractChannelAndPeer(sessionKey);
-    if (!session) return null;
-
-    for (const [key, candidate] of this.routeIntents) {
-      if (now - candidate.timestamp > INTENT_TTL_MS) {
-        this.routeIntents.delete(key);
-        continue;
-      }
-
-      const stored = SmartRouterBridge.extractChannelAndPeer(key);
-      if (!stored) continue;
-
-      if (session.channel === stored.channel && session.peerId === stored.peerId) {
-        this.routeIntents.delete(key);
-        this.lastIntent = null;
-        return candidate;
-      }
-    }
-
-    if (this.lastIntent && Date.now() - this.lastIntent.timestamp < 5_000) {
-      const intent = this.lastIntent.intent;
-      const sourceKey = this.lastIntent.sourceKey;
-      this.routeIntents.delete(sourceKey);
-      this.lastIntent = null;
-      if (Date.now() - intent.timestamp > INTENT_TTL_MS) return null;
-      this.logger?.info?.(`smart-router: matched intent via recency fallback (stored=${sourceKey}, lookup=${sessionKey})`);
-      return intent;
-    }
-    this.lastIntent = null;
-    return null;
-  }
-
-  private purgeStaleIntents(): void {
-    const now = Date.now();
-    for (const [key, intent] of this.routeIntents) {
-      if (now - intent.timestamp > INTENT_TTL_MS) {
-        this.routeIntents.delete(key);
-      }
-    }
+  consumePendingMessage(): MessageIntent | null {
+    const msg = this.pendingMessage;
+    this.pendingMessage = null;
+    if (!msg) return null;
+    if (Date.now() - msg.timestamp > INTENT_TTL_MS) return null;
+    return msg;
   }
 
   async initialize(): Promise<void> {
@@ -237,20 +159,28 @@ export class SmartRouterBridge {
 
     const sessionKey = hookContext?.sessionKey ?? hookContext?.sessionId ?? "unknown";
 
-    const storedIntent = this.consumeRouteIntent(sessionKey);
-    if (storedIntent) {
-      this.logger?.info?.(`smart-router: found stored intent class=${storedIntent.className} for session=${sessionKey}`);
-      return this.resolveByClass(storedIntent.className, storedIntent.strippedPrompt, hookContext);
+    const pending = this.consumePendingMessage();
+
+    if (pending?.className && pending.strippedPrompt) {
+      this.logger?.info?.(`smart-router: command route class=${pending.className} text="${pending.strippedPrompt.substring(0, 80)}" session=${sessionKey}`);
+      return this.resolveByClass(pending.className, pending.strippedPrompt, hookContext);
     }
 
-    const userMsg = extractUserMessage(prompt);
-    this.logger?.info?.(`smart-router: resolving prompt: "${userMsg.substring(0, 120)}"`);
-    this.logger?.debug?.(`smart-router: extractUserMessage raw result (first 200): "${userMsg.substring(0, 200)}"`);
+    const cleanText = pending?.cleanText ?? null;
 
-    const prefixMatch = parseRoutePrefix(prompt);
-    if (prefixMatch) {
-      return this.resolveByClass(prefixMatch.className, prefixMatch.stripped, hookContext);
+    if (cleanText) {
+      this.logger?.info?.(`smart-router: routing clean text: "${cleanText.substring(0, 120)}" session=${sessionKey}`);
+
+      const prefixMatch = parseRoutePrefix(cleanText);
+      if (prefixMatch) {
+        return this.resolveByClass(prefixMatch.className, prefixMatch.stripped, hookContext);
+      }
+    } else {
+      this.logger?.info?.(`smart-router: no clean text from message_received, skipping semantic route session=${sessionKey}`);
     }
+
+    const textToRoute = cleanText;
+    if (!textToRoute) return null;
 
     try {
       await Promise.race([
@@ -267,10 +197,10 @@ export class SmartRouterBridge {
     if (!this.router || !this.registry) return null;
 
     try {
-      const routingContext = this.buildRoutingContext(userMsg, hookContext);
+      const routingContext = this.buildRoutingContext(textToRoute, hookContext);
 
       const decision = await Promise.race([
-        this.router.route(userMsg, routingContext),
+        this.router.route(textToRoute, routingContext),
         new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("route timeout")), this.config.routeTimeoutMs)
         ),
@@ -287,8 +217,8 @@ export class SmartRouterBridge {
 
             if (this.config.logDecisions) {
               this.logger?.info?.(
-                `smart-router: routed to ${provider}/${modelName} (class=${classifiedName}, config-mapped)` +
-                  (hookContext?.sessionKey ? ` session=${hookContext.sessionKey}` : "")
+                `smart-router: routed to ${provider}/${modelName} (class=${classifiedName}, classified)` +
+                  ` session=${sessionKey}`
               );
             }
 
@@ -311,7 +241,7 @@ export class SmartRouterBridge {
       if (this.config.logDecisions) {
         this.logger?.info?.(
           `smart-router: routed to ${provider}/${modelName} (score=${decision.score.toFixed(3)}, scorer-picked)` +
-            (hookContext?.sessionKey ? ` session=${hookContext.sessionKey}` : "")
+            ` session=${sessionKey}`
         );
       }
 
@@ -328,7 +258,7 @@ export class SmartRouterBridge {
   }
 
   private extractClassFromDecision(decision: RoutingDecision): string | null {
-    const match = decision.reason.match(/^Classification:\s*(\w+)/);
+    const match = decision.reason.match(/Classification:\s*(\w+)/);
     return match ? match[1] : null;
   }
 

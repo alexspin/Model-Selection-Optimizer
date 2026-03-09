@@ -1,7 +1,7 @@
 import type { OpenClawPluginApi } from "openclaw/plugin-sdk";
 import { SmartRouterBridge, DEFAULT_PLUGIN_CONFIG, parseRoutePrefix } from "./bridge.js";
 import type { SmartRouterPluginConfig } from "./bridge.js";
-import { loadRoutingConfig, getClassForCommand, getHelpForCommand } from "../config/routing-config.js";
+import { loadRoutingConfig } from "../config/routing-config.js";
 
 export default function register(api: OpenClawPluginApi) {
   const pluginCfg = (api.pluginConfig ?? {}) as Partial<SmartRouterPluginConfig>;
@@ -34,7 +34,7 @@ export default function register(api: OpenClawPluginApi) {
     });
   }
 
-  api.on("message_received", async (event, ctx) => {
+  api.on("message_received", async (event, _ctx) => {
     const content = event.content?.trim();
     if (!content) return;
 
@@ -49,16 +49,15 @@ export default function register(api: OpenClawPluginApi) {
         if (lower.startsWith(prefix + " ")) {
           const stripped = content.slice(prefix.length).trim();
           if (stripped) {
-            const intentKey = ctx.conversationId ?? event.from;
-            if (!intentKey) return;
-            bridge.setRouteIntent(intentKey, cmdConfig.class, stripped);
-            api.logger.info(`smart-router: stored intent class=${cmdConfig.class} from message_received key=${intentKey} prefix=${prefix}`);
+            bridge.storeMessage(content, cmdConfig.class, stripped);
+            api.logger.info(`smart-router: stored command message class=${cmdConfig.class} prefix=${prefix}`);
           }
           return;
         }
       }
     }
 
+    bridge.storeMessage(content);
   });
 
   api.on("before_model_resolve", async (event, ctx) => {
