@@ -1,0 +1,46 @@
+
+ Alessandro   │ Alessandro_arm (22:11) ✓
+ Alex, Alessa │ The Smart Router injection still says I'm
+ Sophia       │ *claude-sonnet-4-6* — which means `~simple` didn't trigger
+ Mika         │ the routing override. The router is likely only watching
+ Emery Bowen  │ for `/simple` (slash prefix), not `~simple` (tilde prefix).
+              │ 
+              │ So `~` isn't a recognized command prefix in the current
+              │ routing config. The semantic classifier picked this up as a
+              │ moderate complexity message and defaulted to Claude.
+              │ 
+              │ Want me to check the logs to confirm, or add `~` as an
+              │ alternative prefix to the routing config?
+              │ 
+              │ You (22:12) ✓
+              │ ~simple this is a test, which model are you
+              │ 
+              │ Alessandro_arm (22:12) ✓
+              │ Interesting — two things visible in the logs:
+              │ 
+              │ `~simple`* IS being recognized:*
+              │ 
+              │ ```
+              │ smart-router: stored intent class=simple from
+              │ message_received key=telegram:8406588466 prefix=~simple
+              │ ```
+              │ *But the stored intent isn't being applied.* The _next_
+              │ turn (this one) goes through `before_model_resolve` and the
+              │ scorer picks Claude anyway — the stored `simple` intent was
+              │ never consumed.
+              │ 
+              │ The bug: `message_received` stores the intent correctly,
+              │ but `before_model_resolve` looks up by `sessionKey` while
+              │ `message_received` stored it under
+              │ `key=telegram:8406588466`. Those are different keys — so
+              │ the lookup misses and falls back to the scorer.
+              │ 
+              │ The fix is in the key used for storage vs lookup. The
+              │ `message_received` handler uses `ctx.conversationId ??
+              │ ctx.sessionKey ?? ...` but it's resolving to
+              │ `telegram:8406588466` (the conversation ID), while
+              │ `before_model_resolve` uses `ctx.sessionKey` which is
+              │ `agent:main:telegram:direct:8406588466`. They don't match.
+              │ 
+              │ Want me to patch this now?
+              │
