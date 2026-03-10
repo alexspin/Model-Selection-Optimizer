@@ -61,5 +61,35 @@
     },
     "createdAtMs": 1772759501040,
     "approvedAtMs": 1772759501040
+  },
+  "609d7d513653f3d31d805343d64061911de78d787b6b17dca59659febb2deb0b": {
+    "deviceId": "609d7d513653f3d31d805343d64061911de78d787b6b17dca59659febb2deb0b",
+    "publicKey": "mvl0c35by4BAaqQrYc_UAu52Q6ie03FEx16GCFDu0wg",
+    "displayName": "openclaw-tui",
+    "platform": "linux",
+    "clientId": "gateway-client",
+    "clientMode": "ui",
+    "role": "operator",
+    "roles": [
+      "operator"
+    ],
+    "scopes": [
+      "operator.admin"
+    ],
+    "approvedScopes": [
+      "operator.admin"
+    ],
+    "tokens": {
+      "operator": {
+        "token": "mi1yZwb6jTdogvKpZTUESXmCRBvOdS1EjGcFKGeI0iM",
+        "role": "operator",
+        "scopes": [
+          "operator.admin"
+        ],
+        "createdAtMs": 1773103147578
+      }
+    },
+    "createdAtMs": 1773103147577,
+    "approvedAtMs": 1773103147577
   }
 }
