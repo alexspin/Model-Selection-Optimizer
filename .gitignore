@@ -132,5 +132,14 @@ dist
 # Replit
 .replit
 replit.md
-.breakpoints*.bak
+.breakpoints
+
+# OpenClaw runtime state (contains credentials/tokens)
+.openclaw/agents/*/agent/models.json
+.openclaw/agents/*/sessions/
+.openclaw/devices/
+.openclaw/identity/
+.openclaw/telegram/
+
+*.bak
 *.json.bak
