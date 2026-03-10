@@ -46,6 +46,18 @@ Then point your OpenClaw config at the plugin. See [INSTALL.md](INSTALL.md) for 
 
 Type a bare command (e.g., `/best`) to see help. Type with a message (e.g., `/coding write a function to reverse a string`) to route that message.
 
+### Telegram and other chat clients
+
+Some clients (like Telegram) intercept `/` commands before they reach OpenClaw. Use `~` as an alternate prefix instead:
+
+```
+~simple what model are you?
+~coding write a function to reverse a string
+~best explain quantum computing
+```
+
+Both `/` and `~` work everywhere. For the best Telegram experience, you can also register the routing commands with BotFather for autocomplete — see [INSTALL.md](INSTALL.md) for details.
+
 ## Project structure
 
 ```
@@ -77,7 +89,7 @@ Plugin behavior (thresholds, logging, fallback model, strategy weights) is confi
 
 ## Requirements
 
-- Node.js 20+
+- Node.js 22+
 - OpenClaw 2026.3.x
 - At least one LLM provider API key (Anthropic and/or Google recommended)
 
