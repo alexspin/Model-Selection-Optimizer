@@ -87,6 +87,16 @@ Try the test script in the root directory to see it route.
 
 Plugin behavior (thresholds, logging, fallback model, strategy weights) is configured in your `openclaw.json` under `plugins.entries.smart-router.config`. See [INSTALL.md](INSTALL.md) for the full options table.
 
+## Testing
+
+A verification script is included to confirm routing works correctly. With the gateway running, run:
+
+```bash
+bash test-routing.sh
+```
+
+This runs 6 tests — 3 slash command routes (`/simple`, `/coding`, `/reason`) and 3 semantic classification routes (casual question, code task, creative writing). Each test sends a message through the gateway and asks the model to identify itself, so you can verify the right model handled each prompt.
+
 ## Requirements
 
 - Node.js 22+
