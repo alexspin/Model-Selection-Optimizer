@@ -71,6 +71,8 @@ All config lives in two places:
 
 To add a new model or change routing, see the "Adding a new model" section in [INSTALL.md](INSTALL.md).
 
+Try the test script in the root directory to see it route. 
+
 Plugin behavior (thresholds, logging, fallback model, strategy weights) is configured in your `openclaw.json` under `plugins.entries.smart-router.config`. See [INSTALL.md](INSTALL.md) for the full options table.
 
 ## Requirements
